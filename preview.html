@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Preview</title>
+</head>
+<body>
+    <h1>Camera Preview</h1>
+    <video id="video" width="640" height="480" controls autoplay></video>
+    <br>
+    <label for="focusRange">Focus:</label>
+    <input type="range" id="focusRange" min="0.0" max="10.0" step="0.1">
+    <br>
+    <button id="startStreamButton">Start Stream</button>
+    <button id="stopStreamButton">Stop Stream</button>
+    <button id="takePhotoButton">Take Photo</button>
+    <script src="/js/socket.io-1.4.5.js"></script>
+
+    <script>
+        console.log('Starting camera preview');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const socketId = urlParams.get('socketId');
+        const clientId = urlParams.get('socketId');
+        const socket = io('http://' + location.hostname + ':3000');
+
+        //const socket = io('http://localhost:3000'); // Adjust the server URL if necessary
+
+        const videoElement = document.getElementById('video');
+        const focusRange = document.getElementById('focusRange');
+        const startStreamButton = document.getElementById('startStreamButton');
+        const stopStreamButton = document.getElementById('stopStreamButton');
+        const takePhotoButton = document.getElementById('takePhotoButton');
+
+        let focusTimeout;
+
+        // Handle focus range input
+        focusRange.addEventListener('input', () => {
+            clearTimeout(focusTimeout);
+            focusTimeout = setTimeout(() => {
+                const focusValue = focusRange.value;
+                socket.emit('update-focus', { socketId:socketId,focusValue: focusValue });
+                console.log(`Focus value set to: ${focusValue}`);
+            }, 500); // Adjust the debounce delay as needed
+        });
+
+        // Handle start stream button click
+        startStreamButton.addEventListener('click', () => {
+            socket.emit('preview', { socketId: socketId, clientId: clientId });
+        });
+
+        // Handle stop stream button click
+        stopStreamButton.addEventListener('click', () => {
+            socket.emit('stop-preview');
+        });
+
+        // Handle take photo button click
+        takePhotoButton.addEventListener('click', () => {
+            socket.emit('take-photo', { time: Date.now() });
+        });
+
+        // Handle incoming preview URL
+        socket.on('preview-url', (url) => {
+            console.log(`Preview URL: ${url}`);
+            videoElement.src = url;
+        });
+    </script>
+</body>
+</html>
