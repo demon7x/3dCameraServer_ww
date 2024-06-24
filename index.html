@@ -57,6 +57,7 @@
                             <th>Photo Error</th>
                             <th>Version</th>
                             <th>New Name</th>
+                            <th>Config</th>
                         </tr>
                     </thead>
                     <tbody id="cameraList">
@@ -68,6 +69,7 @@
                             <td>{{ camera.photoError }}</td>
                             <td>{{ camera.version }}</td>
                             <td><input type="text" name="deviceName" @keyup.enter="updateName(camera.socketId, $event)"></td>
+                            <td><input type="button" value="Preview" class="btn btn-info" v-on:click="preview(camera.socketId)"></td>
                         </tr>
                     </tbody>
                 </table>

@@ -91,6 +91,13 @@ var app = new Vue({
             console.log("Update name", socketId, event.target.value);
             this.socket.emit('update-name', {socketId: socketId, newName: event.target.value});
             event.target.value = null;
+        },
+        updateFocus: function(socketId, event) {
+            this.socket.emit('update-focus', {socketId: socketId, newName: event.target.value});
+        },
+        preview: function (socketId) {
+            window.open(`/preview?socketId=${socketId}&clientId=${socketId}`, 'Camera Preview', 'width=800,height=600');
+            console.log("cameraPreview", socketId);
         }
     }
 })

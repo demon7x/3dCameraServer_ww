@@ -20,6 +20,10 @@ app.get('/', function (request, response) {
     response.sendFile(__dirname + '/index.html');
 });
 
+app.get('/preview', function (request, response) {
+    response.sendFile(__dirname + '/preview.html');
+});
+
 
 app.post('/new-image', upload.single('image'), function (request, response) {
     console.log("received a new image", request.body.socketId);
@@ -65,6 +69,7 @@ app.listen(8080, function () {
 // When a new camera connects set up the following
 io.on('connection', function (socket) {
     console.log('A connection was made', socket.id);
+    console.log('A connection was made', socket.conn.remoteAddress);
 
 
     // Add the camera to a persistent list of devices
@@ -239,9 +244,41 @@ io.on('connection', function (socket) {
         io.emit('photo-error', msg);
         //io.emit('camera-update', cameras);
     });
+    socket.on('preview', function (msg) {
+        console.log(msg);
+        console.log("Preview request for camera", msg.socketId);
+        var i = findCameraIndex(msg.socketId);
+        let camera = cameras[i]
+        if (camera) {
+            io.to(camera.socketId).emit('preview', { cameraId: msg.cameraId, clientSocketId: socket.id });
+        }
+        else{
 
+            console.log("Camera not found");
+        }
+    });
 
+    // 포커스 값을 업데이트하는 이벤트 핸들러 추가
+    socket.on('update-focus', function (msg) {
+        console.log("Updating focus value for camera", msg.socketId, "to", msg.focusValue);
+        var i = findCameraIndex(msg.socketId);
+        let camera = cameras[i]
+        if (camera) {
+            io.to(camera.socketId).emit('update-focus', { focusValue: msg.focusValue });
+        }
+        else{
+
+            console.log("Camera not found");
+        }
+    });
+
+    // 카메라 스트림을 클라이언트로 전달하는 이벤트 핸들러 추가
+    socket.on('camera-stream', function (msg) {
+        io.to(msg.clientSocketId).emit('camera-stream', { stream: msg.stream });
+    });
 });
+
+
 
 function clientUpdate() {
 
