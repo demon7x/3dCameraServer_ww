@@ -86,7 +86,7 @@ var app = new Vue({
                 return;
             }
             // Emit take-photo event with the command
-            socket.emit('take-photo', { command: this.photoCommand, time: Date.now() });
+            this.socket.emit('take-photo', { command: this.photoCommand, time: Date.now() });
             //takeId = guid();
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
