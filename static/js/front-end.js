@@ -81,8 +81,14 @@ var app = new Vue({
     },
     methods: {
         takePhoto: function () {
-            takeId = guid();
-            this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
+            if (this.photoCommand.trim() === '') {
+                alert('Please enter a photo command.');
+                return;
+            }
+            // Emit take-photo event with the command
+            socket.emit('take-photo', { command: this.photoCommand, time: Date.now() });
+            //takeId = guid();
+            //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
         updateSoftware: function () {
             this.socket.emit('update-software', {});

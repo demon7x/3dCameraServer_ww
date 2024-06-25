@@ -144,7 +144,7 @@ io.on('connection', function (socket) {
         if (!fs.existsSync(folderName)) {
             fs.mkdirSync(folderName);
         }
-        msg.socketId = socket.id;
+        //msg.socketId = socket.id;
         io.emit('take-photo', msg);
 
         for (let i = 0; i < cameras.length; i++) {
