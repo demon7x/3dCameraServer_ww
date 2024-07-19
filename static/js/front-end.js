@@ -29,12 +29,7 @@ var app = new Vue({
     },
     computed: {
         orderedCameras: function () {
-            return this.cameras.sort(function(a, b){
-                if (isNaN(a) || isNaN(b)) {
-                    return -1;
-                }
-                return a - b;
-            });
+            return this.cameras.slice().sort((a, b) => a.name.localeCompare(b.name));
         }
     },
     created: function () {
