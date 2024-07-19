@@ -19,6 +19,9 @@
     body {
         padding-top: 70px;
     }
+    .custom-command-input {
+        width: 100%; /* 너비 두 배 */
+    }
     </style>
 
 </head>
@@ -71,7 +74,7 @@
                             <td>{{ camera.photoError }}</td>
                             <td>{{ camera.version }}</td>
                             <td><input type="text" name="deviceName" @keyup.enter="updateName(camera.socketId, $event)"></td>
-                            <td><input type="text" name="customCommand" @input="updateCustomCommand(camera.socketId, $event)" :value="customCommands[camera.socketId]" ref="customCommandInputs"></td>
+                            <td><input type="text" name="customCommand" @input="updateCustomCommand(camera.socketId, $event)" :value="customCommands[camera.socketId]" ref="customCommandInputs" class="custom-command-input"></td>
                             <td><input type="button" value="Preview" class="btn btn-info" v-on:click="preview(camera.socketId)"></td>
                         </tr>
                     </tbody>
