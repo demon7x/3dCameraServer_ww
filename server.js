@@ -146,11 +146,18 @@ io.on('connection', function (socket) {
         }
         //msg.socketId = socket.id;
         io.emit('take-photo', msg);
+        console.log(msg)
 
         for (let i = 0; i < cameras.length; i++) {
             if (cameras[i].type == 'camera') {
                 cameras[i].waitingOnPhoto = true;
                 cameras[i].receivedPhoto  = false;
+
+
+                let customCommand = msg.customCommands.find(command => command.socketId === cameras[i].socketId);
+                if (customCommand) {
+                    cameras[i].customCommand = customCommand.customCommand;
+                }
             }
         }
 

@@ -7,6 +7,8 @@ var app = new Vue({
     data: {
         socket: null,
         message: 'Hello Vue!',
+        customCommands: {}, // 커맨드 값을 저장할 객체
+        photoCommand :"",
         cameras: [],
         photos: [
             {
@@ -81,9 +83,9 @@ var app = new Vue({
                 return;
             }
             // Emit take-photo event with the command
-            
+ 
             takeId = guid();
-            this.socket.emit('take-photo', { command: this.photoCommand, time: Date.now(), takeId: takeId});
+            this.socket.emit('take-photo', { command: this.photoCommand,customCommands: this.customCommands, time: Date.now(), takeId: takeId});
             //takeId = guid();
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
@@ -101,6 +103,25 @@ var app = new Vue({
         preview: function (socketId) {
             window.open(`/preview?socketId=${socketId}&clientId=${socketId}`, 'Camera Preview', 'width=800,height=600');
             console.log("cameraPreview", socketId);
+        },
+        updateCustomCommand: function (socketId, event) {
+            console.log("Update custom command", socketId, event.target.value);
+            this.customCommands[socketId] = event.target.value;
+        },
+        updateAllCustomCommands: function () {
+            console.log("Updating all custom commands with photoCommand:", this.photoCommand);
+            for (let camera of this.cameras) {
+                this.$set(this.customCommands, camera.socketId, this.photoCommand);
+
+                // 강제로 @input 이벤트 트리거
+                this.$nextTick(() => {
+                    let inputElement = this.$refs.customCommandInputs.find(input => input.name === 'customCommand' && input.value === this.photoCommand);
+                    if (inputElement) {
+                        let event = new Event('input', { bubbles: true });
+                        inputElement.dispatchEvent(event);
+                    }
+                });
+            }
         }
     }
 })
