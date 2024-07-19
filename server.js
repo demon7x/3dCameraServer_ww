@@ -153,10 +153,8 @@ io.on('connection', function (socket) {
                 cameras[i].waitingOnPhoto = true;
                 cameras[i].receivedPhoto  = false;
 
-
-                let customCommand = msg.customCommands.find(command => command.socketId === cameras[i].socketId);
-                if (customCommand) {
-                    cameras[i].customCommand = customCommand.customCommand;
+                if (msg.customCommands[cameras[i].socketId]) {
+                    cameras[i].customCommand = msg.customCommands[cameras[i].socketId];
                 }
             }
         }
