@@ -75,10 +75,6 @@ var app = new Vue({
         this.socket.on('take-photo', function(data){
             that.photos = [];
         });
-        this.socket.on('take-video', function(data){
-            console.log(data);
-        });
-
     },
     methods: {
         takePhoto: function () {
@@ -94,18 +90,16 @@ var app = new Vue({
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
         takeVideo: function () {
-            console.log("Taking video");
-            const takeId = guid();
-                // 모든 카메라에 동영상 녹화 요청
-            this.socket.emit('take-video', {
-                    command: this.photoCommand,
-                    customCommands:this.customCommands,
-                    cameraId: camera.id,
-                    time: Date.now(),
-                    duration: 10000, // 30초
-                    framerate: 24,  // 24 FPS
-                    takeId: takeId
-                });
+            if (this.photoCommand.trim() === '') {
+                alert('Please enter a photo command.');
+                return;
+            }
+            // Emit take-photo event with the command
+ 
+            takeId = guid();
+            this.socket.emit('take-photo', { command: this.photoCommand,customCommands: this.customCommands, time: Date.now(), takeId: takeId});
+            //takeId = guid();
+            //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
         updateSoftware: function () {
             this.socket.emit('update-software', {});
