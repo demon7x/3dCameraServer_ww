@@ -89,6 +89,19 @@ var app = new Vue({
             //takeId = guid();
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
+        takeVideo: function () {
+            const takeId = guid();
+            this.cameras.forEach(camera => {
+                // 모든 카메라에 동영상 녹화 요청
+                this.socket.emit('take-video', {
+                    cameraId: camera.id,
+                    time: Date.now(),
+                    duration: 10000, // 30초
+                    framerate: 24,  // 24 FPS
+                    takeId: takeId
+                });
+            });
+        },
         updateSoftware: function () {
             this.socket.emit('update-software', {});
         },
