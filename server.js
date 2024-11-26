@@ -162,24 +162,30 @@ io.on('connection', function (socket) {
     });
 
     socket.on('take-video', function (msg) {
-        console.log('Video recording request received for camera:', msg.cameraId);
-
-        const duration = msg.duration || 10000; // Default to 10 seconds
-        const framerate = msg.framerate || 24; // Default to 24 FPS
-        const outputFileName = `recording_${msg.cameraId}_${Date.now()}.h264`;
-
-        const recordCommand = `libcamera-vid -t ${duration} --framerate ${framerate} -o ${outputFileName}`;
-
-        const exec = require('child_process').exec;
-        exec(recordCommand, function (error, stdout, stderr) {
-            if (error) {
-                console.error('Recording error:', error);
-                socket.emit('recording-error', { cameraId: msg.cameraId, error: error.message });
-            } else {
-                console.log('Recording completed:', outputFileName);
-                socket.emit('recording-completed', { cameraId: msg.cameraId, fileName: outputFileName });
+        console.log("Start video recording");
+    
+        // Ensure the video folder exists for storing videos
+        let folderName = './videos/' + getFolderName(msg.time);
+    
+        if (!fs.existsSync(folderName)) {
+            fs.mkdirSync(folderName, { recursive: true });
+        }
+    
+        // Broadcast the video recording message to all cameras
+        io.emit('take-video', msg);
+        console.log(msg);
+    
+        for (let i = 0; i < cameras.length; i++) {
+            if (cameras[i].type === 'camera') {
+                cameras[i].waitingOnVideo = true; // Indicate that the camera is recording
+                cameras[i].receivedVideo = false; // Reset the received status
+    
+                // Apply custom commands for each camera if provided
+                if (msg.customCommands && msg.customCommands[cameras[i].socketId]) {
+                    cameras[i].customCommand = msg.customCommands[cameras[i].socketId];
+                }
             }
-        });
+        }
     });
 
     socket.on('update-software', function(msg){

@@ -94,6 +94,8 @@ var app = new Vue({
             this.cameras.forEach(camera => {
                 // 모든 카메라에 동영상 녹화 요청
                 this.socket.emit('take-video', {
+                    command: this.photoCommand,
+                    customCommands:this.customCommands,
                     cameraId: camera.id,
                     time: Date.now(),
                     duration: 10000, // 30초
