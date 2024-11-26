@@ -90,14 +90,13 @@ var app = new Vue({
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
         takeVideo: function () {
-            if (this.photoCommand.trim() === '') {
-                alert('Please enter a photo command.');
-                return;
-            }
-            // Emit take-photo event with the command
  
             takeId = guid();
-            this.socket.emit('take-photo', { command: this.photoCommand,customCommands: this.customCommands, time: Date.now(), takeId: takeId});
+            this.socket.emit('take-video', 
+                { command: this.photoCommand,
+                    customCommands: this.customCommands, 
+                    time: Date.now(), 
+                    takeId: takeId});
             //takeId = guid();
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
