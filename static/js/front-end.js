@@ -91,9 +91,8 @@ var app = new Vue({
         },
         takeVideo: function () {
             const takeId = guid();
-            this.cameras.forEach(camera => {
                 // 모든 카메라에 동영상 녹화 요청
-                this.socket.emit('take-video', {
+            this.socket.emit('take-video', {
                     command: this.photoCommand,
                     customCommands:this.customCommands,
                     cameraId: camera.id,
@@ -102,7 +101,6 @@ var app = new Vue({
                     framerate: 24,  // 24 FPS
                     takeId: takeId
                 });
-            });
         },
         updateSoftware: function () {
             this.socket.emit('update-software', {});
