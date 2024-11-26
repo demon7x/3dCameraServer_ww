@@ -75,6 +75,10 @@ var app = new Vue({
         this.socket.on('take-photo', function(data){
             that.photos = [];
         });
+        this.socket.on('take-video', function(data){
+            console.log(data);
+        });
+
     },
     methods: {
         takePhoto: function () {
