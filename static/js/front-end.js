@@ -90,6 +90,7 @@ var app = new Vue({
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
         takeVideo: function () {
+            console.log("Taking video");
             const takeId = guid();
                 // 모든 카메라에 동영상 녹화 요청
             this.socket.emit('take-video', {
