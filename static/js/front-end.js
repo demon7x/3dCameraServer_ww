@@ -96,8 +96,7 @@ var app = new Vue({
                 { command: this.photoCommand,
                     customCommands: this.customCommands, 
                     time: Date.now(), 
-                    takeId: takeId,
-                    caramId:socketId});
+                    takeId: takeId});
             //takeId = guid();
             //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
         },
