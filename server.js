@@ -85,16 +85,38 @@ io.on('connection', function (socket) {
         photoSending: false,
         receivedPhoto: false,
         version: null,
-        photoStatus: null
+        photoStatus: null,
+        connected: true
     });
 
 
     // Listen for heartbeat notifications from the cameras
     socket.on('camera-online', function(msg){
 
-        // Update our cache
         var i = findCameraIndex(socket.id);
+        if (i == null) return;
+
+        // If an older disconnected entry exists for the same hostName or name,
+        // merge it into this fresh socket entry so the list doesn't grow on every reconnect.
+        var matchKey = msg.hostName || msg.name;
+        if (matchKey) {
+            for (var j = cameras.length - 1; j >= 0; j--) {
+                if (j === i) continue;
+                var other = cameras[j];
+                if (other.type !== 'camera') continue;
+                var otherKey = other.hostName || other.name;
+                if (otherKey === matchKey && other.connected === false) {
+                    // Preserve any fields worth keeping from the old record
+                    cameras[i].lastUpdateOk     = other.lastUpdateOk;
+                    cameras[i].lastUpdateStderr = other.lastUpdateStderr;
+                    cameras.splice(j, 1);
+                    if (j < i) i--;
+                }
+            }
+        }
+
         cameras[i].type             = 'camera';
+        cameras[i].connected        = true;
         cameras[i].name             = msg.name;
         cameras[i].ipAddress        = msg.ipAddress;
         cameras[i].lastCheckin      = new Date();
@@ -104,13 +126,7 @@ io.on('connection', function (socket) {
         if (msg.version) {
             cameras[i].version = msg.version;
         }
-        if (msg.hostName) {
-            cameras[i].hostName = msg.hostName;
-        } else {
-            cameras[i].hostName = null;
-        }
-
-        //io.emit('camera-update', cameras);
+        cameras[i].hostName = msg.hostName || null;
     });
 
 
@@ -127,13 +143,25 @@ io.on('connection', function (socket) {
 
     socket.on('disconnect', function(msg, msg2) {
         var i = findCameraIndex(socket.id);
-        cameras.splice(i, 1);
+        if (i == null) return;
+
+        var entry = cameras[i];
+        if (entry && entry.type === 'camera') {
+            // Keep the camera in the list so operators can see it's offline
+            entry.connected      = false;
+            entry.photoStatus    = 'disconnected';
+            entry.waitingOnPhoto = false;
+            entry.photoSending   = false;
+            console.log('[disconnect] camera=' + (entry.name || entry.hostName || 'unknown') + ' kept in list as offline');
+        } else {
+            // Web clients go away normally
+            cameras.splice(i, 1);
+            if (entry && entry.type === 'client') {
+                clearInterval(clientUpdateIntervalTimer);
+            }
+        }
 
         io.emit('camera-update', cameras);
-
-        if (cameras[i] && cameras[i].type == 'type') {
-            clearInterval(clientUpdateIntervalTimer);
-        }
     });
 
 
@@ -355,6 +383,9 @@ function clientUpdate() {
         }
         if (cameras[i].updateInProgress) {
             photoStatus = 'updating-software';
+        }
+        if (cameras[i].connected === false) {
+            photoStatus = 'disconnected';
         }
         cameras[i].photoStatus = photoStatus;
     }
