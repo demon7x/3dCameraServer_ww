@@ -90,16 +90,20 @@
     <hr style="border-color: var(--border); margin: 28px 0 16px;">
     <h2 style="color: var(--gold); font-size: 16px;">Camera Settings <span id="configCameraLabel" style="color: var(--text-dim); font-weight: normal; font-size: 13px;"></span></h2>
     <div class="row">
-        <label style="display:block; margin-bottom:4px;">Photo args (appended to libcamera-still):</label>
-        <input type="text" id="photoArgs" placeholder="e.g. --awb daylight --ev 0.3" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
+        <label style="display:block; margin-bottom:4px;">Photo extra args (added on top of Live Controls above):</label>
+        <input type="text" id="photoArgs" placeholder="e.g. --ev 0.3 --hdr" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
     </div>
     <div class="row">
-        <label style="display:block; margin-bottom:4px;">Video args (appended to libcamera-vid):</label>
-        <input type="text" id="videoArgs" placeholder="e.g. --denoise cdn_off --shutter 8000" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
+        <label style="display:block; margin-bottom:4px;">Video extra args (added on top of Live Controls above):</label>
+        <input type="text" id="videoArgs" placeholder="e.g. --denoise cdn_off" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
     </div>
     <div class="row">
-        <button id="saveConfigButton" style="background: var(--gold); color: #000; font-weight: 600;">Save Settings</button>
+        <button id="saveConfigButton" style="background: var(--gold); color: #000; font-weight: 600;">Apply & Save</button>
         <span id="saveConfigStatus" style="color: var(--text-dim); margin-left: 10px;"></span>
+        <div style="color: var(--text-dim); font-size: 12px; margin-top: 6px;">
+            Live Controls are converted to <code>--shutter / --gain / --awb / --brightness / --contrast / --saturation / --lens-position</code>
+            and combined with the extras above. On reopen, stored values initialize the sliders automatically.
+        </div>
     </div>
 
     <script src="/js/socket.io-1.4.5.js"></script>
@@ -263,12 +267,115 @@
 
         socket.on('connect', requestConfig);
 
+        // Bidirectional bridge between Live Controls sliders and the CLI
+        // arg strings persisted in cameras-config.json. Structured flags
+        // (exposure/gain/awb/brightness/contrast/saturation/focus) round-
+        // trip through the sliders; anything unrecognized stays in the
+        // free-form "extras" text inputs.
+
+        var AWB_MODES = ['auto','tungsten','fluorescent','indoor','daylight','cloudy'];
+        var AWB_ALIAS = {incandescent: 1, 'daylight': 4, 'cloud': 5};
+
+        function slidersToArgs() {
+            var parts = [];
+            if (!aeToggle.checked) {
+                parts.push('--shutter', String(parseInt(exposureRange.value, 10)));
+                parts.push('--gain', Number(gainRange.value).toFixed(2));
+            }
+            var awbIdx = parseInt(awbSelect.value, 10);
+            if (!isNaN(awbIdx) && AWB_MODES[awbIdx]) {
+                parts.push('--awb', AWB_MODES[awbIdx]);
+            }
+            var b = parseFloat(brightnessRange.value);
+            if (!isNaN(b) && b !== 0)    parts.push('--brightness', b.toFixed(2));
+            var c = parseFloat(contrastRange.value);
+            if (!isNaN(c) && c !== 1.0)  parts.push('--contrast', c.toFixed(2));
+            var s = parseFloat(saturationRange.value);
+            if (!isNaN(s) && s !== 1.0)  parts.push('--saturation', s.toFixed(2));
+            var f = parseFloat(focusRange.value);
+            if (!isNaN(f)) {
+                parts.push('--autofocus-mode', 'manual');
+                parts.push('--lens-position', f.toFixed(2));
+            }
+            return parts.join(' ');
+        }
+
+        // Parses a libcamera args string. Structured flags become slider
+        // state (mutating the DOM), unrecognized tokens are returned as
+        // the residual string for the extras text input.
+        function parseArgsIntoSliders(argsStr, updateSliders) {
+            if (!argsStr) return '';
+            var tokens = String(argsStr).trim().split(/\s+/).filter(Boolean);
+            var extras = [];
+            var i = 0;
+            var sawShutter = false, sawFocus = false;
+
+            function setSlider(el, labelEl, val, fmt) {
+                if (!updateSliders) return;
+                if (el) el.value = val;
+                if (labelEl) labelEl.textContent = fmt ? fmt(val) : val;
+            }
+
+            while (i < tokens.length) {
+                var t = tokens[i], n = tokens[i+1];
+                if ((t === '--shutter') && n) {
+                    setSlider(exposureRange, exposureValueEl, parseInt(n, 10));
+                    sawShutter = true;
+                    i += 2; continue;
+                }
+                if ((t === '--gain' || t === '--analoguegain') && n) {
+                    setSlider(gainRange, gainValueEl, parseFloat(n), function (v) { return Number(v).toFixed(1); });
+                    i += 2; continue;
+                }
+                if (t === '--awb' && n) {
+                    var idx = AWB_MODES.indexOf(String(n).toLowerCase());
+                    if (idx < 0 && AWB_ALIAS[n.toLowerCase()] != null) idx = AWB_ALIAS[n.toLowerCase()];
+                    if (idx >= 0 && updateSliders) awbSelect.value = String(idx);
+                    i += 2; continue;
+                }
+                if (t === '--brightness' && n) {
+                    setSlider(brightnessRange, brightnessValueEl, parseFloat(n), function (v) { return Number(v).toFixed(2); });
+                    i += 2; continue;
+                }
+                if (t === '--contrast' && n) {
+                    setSlider(contrastRange, contrastValueEl, parseFloat(n), function (v) { return Number(v).toFixed(2); });
+                    i += 2; continue;
+                }
+                if (t === '--saturation' && n) {
+                    setSlider(saturationRange, saturationValueEl, parseFloat(n), function (v) { return Number(v).toFixed(2); });
+                    i += 2; continue;
+                }
+                if (t === '--lens-position' && n) {
+                    setSlider(focusRange, focusValueEl, parseFloat(n), function (v) { return Number(v).toFixed(1); });
+                    sawFocus = true;
+                    i += 2; continue;
+                }
+                if (t === '--autofocus-mode' && n) {
+                    // manual implied when --lens-position appears; just consume.
+                    i += 2; continue;
+                }
+                extras.push(t);
+                i++;
+            }
+
+            if (updateSliders) aeToggle.checked = !sawShutter;
+            return extras.join(' ');
+        }
+
         socket.on('camera-config', function (msg) {
             if (!msg) return;
             var cfg = msg.config || {};
             configCameraLbl.textContent = msg.hostName ? '(' + msg.hostName + ')' : '';
-            photoArgsEl.value = cfg.photoArgs || '';
-            videoArgsEl.value = cfg.videoArgs || '';
+
+            // Parse photoArgs first (authoritative for shared structured
+            // flags) — updates sliders and extracts residual for the
+            // photo extras text input. Then parse videoArgs without
+            // re-touching the sliders to compute its residual.
+            var photoResidual = parseArgsIntoSliders(cfg.photoArgs || '', true);
+            var videoResidual = parseArgsIntoSliders(cfg.videoArgs || '', false);
+            photoArgsEl.value = photoResidual;
+            videoArgsEl.value = videoResidual;
+
             if (cfg.previewSize) {
                 var opt = resolutionSelect.querySelector('option[value="' + cfg.previewSize + '"]');
                 if (opt) resolutionSelect.value = cfg.previewSize;
@@ -277,6 +384,11 @@
                 qualityRange.value = cfg.previewQuality;
                 qualityValue.textContent = cfg.previewQuality;
             }
+
+            // Push what we just parsed to the running Picamera2 so the
+            // visible preview matches the stored values immediately.
+            flushControls(true);
+
             if (msg.saved) {
                 saveConfigStatus.textContent = 'saved ' + new Date().toLocaleTimeString();
             }
@@ -284,15 +396,25 @@
 
         document.getElementById('saveConfigButton').addEventListener('click', function () {
             saveConfigStatus.textContent = 'saving...';
+            var structured = slidersToArgs();
+            var photoExtras = photoArgsEl.value.trim();
+            var videoExtras = videoArgsEl.value.trim();
+            var combinedPhoto = [structured, photoExtras].filter(Boolean).join(' ');
+            var combinedVideo = [structured, videoExtras].filter(Boolean).join(' ');
+
             socket.emit('set-camera-config', {
                 socketId: socketId,
                 config: {
-                    photoArgs:      photoArgsEl.value.trim(),
-                    videoArgs:      videoArgsEl.value.trim(),
+                    photoArgs:      combinedPhoto,
+                    videoArgs:      combinedVideo,
                     previewSize:    resolutionSelect.value,
                     previewQuality: parseInt(qualityRange.value, 10)
                 }
             });
+
+            // Also flush current live state to the running preview so the
+            // Save doubles as Apply.
+            flushControls(false);
         });
     </script>
 </body>
