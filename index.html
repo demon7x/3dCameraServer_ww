@@ -26,6 +26,76 @@
     video.thumbnail {
         background: #222;
     }
+
+    /* Summary tile shown after capture: latest asset + count badge */
+    .tile {
+        position: relative;
+        cursor: pointer;
+        display: inline-block;
+        margin-right: 12px;
+    }
+    .tile img, .tile video {
+        width: 100%;
+        max-width: 320px;
+        max-height: 240px;
+        border: 1px solid var(--gold-dim);
+        background: #000;
+        display: block;
+    }
+    .tile:hover img, .tile:hover video { border-color: var(--gold); }
+    .tile .badge {
+        position: absolute; top: 6px; right: 6px;
+        background: var(--gold);
+        color: #000;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    .tile .label {
+        color: var(--gold);
+        margin-top: 6px;
+        font-size: 13px;
+    }
+
+    /* Full-screen gallery modal */
+    .gallery {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.95);
+        z-index: 2000;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .gallery img, .gallery video {
+        max-width: 92vw; max-height: 82vh;
+        display: block; background: #000;
+        border: 1px solid var(--gold-dim);
+    }
+    .gallery .btn-nav {
+        position: absolute;
+        top: 50%; transform: translateY(-50%);
+        background: transparent; color: var(--gold);
+        border: 0; cursor: pointer;
+        font-size: 56px; line-height: 1; padding: 0 24px;
+        user-select: none;
+    }
+    .gallery .btn-nav:hover { color: var(--gold-hi); }
+    .gallery .btn-nav.prev { left: 10px; }
+    .gallery .btn-nav.next { right: 10px; }
+    .gallery .btn-close {
+        position: absolute; top: 18px; right: 26px;
+        background: transparent; color: var(--gold);
+        border: 0; cursor: pointer;
+        font-size: 34px; line-height: 1; padding: 0;
+    }
+    .gallery .btn-close:hover { color: var(--gold-hi); }
+    .gallery .caption {
+        position: absolute; bottom: 18px; left: 0; right: 0;
+        text-align: center;
+        color: var(--gold);
+        font-size: 14px;
+        letter-spacing: 0.3px;
+    }
+    .gallery .caption .dim { color: var(--text-dim); margin: 0 8px; }
     </style>
 
 </head>
@@ -48,20 +118,33 @@
         </div>
     </nav>
     <div class="container-fluid">
-        <div class="row">
-            <div class="col-xs-3" v-for="photo in orderedPhotos">
-                <img :src="photo.imagePath" class="thumbnail">
-                <div class="caption">
-                    <h3>{{ photo.cameraName }}</h3>
-                </div>
+        <div class="row" style="padding: 0 15px;">
+            <div class="tile" v-if="orderedPhotos.length" v-on:click="openGallery('photo', 0)">
+                <img :src="orderedPhotos[0].imagePath">
+                <span class="badge">{{ orderedPhotos.length }} photos</span>
+                <div class="label">latest: {{ orderedPhotos[0].cameraName }}</div>
+            </div>
+            <div class="tile" v-if="orderedVideos.length" v-on:click="openGallery('video', 0)">
+                <video :src="orderedVideos[0].videoPath" preload="metadata" muted></video>
+                <span class="badge">{{ orderedVideos.length }} videos</span>
+                <div class="label">latest: {{ orderedVideos[0].cameraName }}</div>
             </div>
         </div>
-        <div class="row" v-if="orderedVideos.length">
-            <div class="col-xs-3" v-for="video in orderedVideos">
-                <video :src="video.videoPath" class="thumbnail" controls preload="metadata"></video>
-                <div class="caption">
-                    <h3>{{ video.cameraName }}</h3>
-                </div>
+
+        <div class="gallery" v-if="gallery.open" v-on:click.self="closeGallery">
+            <button class="btn-close" v-on:click="closeGallery" title="Close (Esc)">×</button>
+            <button class="btn-nav prev" v-on:click="galleryPrev" title="Previous (←)">‹</button>
+            <button class="btn-nav next" v-on:click="galleryNext" title="Next (→)">›</button>
+
+            <img v-if="gallery.kind === 'photo' && currentItem.imagePath" :src="currentItem.imagePath">
+            <video v-if="gallery.kind === 'video' && currentItem.videoPath" :src="currentItem.videoPath" controls autoplay></video>
+
+            <div class="caption" v-if="currentItem">
+                {{ currentItem.cameraName || '?' }}
+                <span class="dim">|</span>
+                {{ gallery.index + 1 }} / {{ galleryList.length }}
+                <span class="dim" v-if="gallery.kind === 'photo'">· photo</span>
+                <span class="dim" v-if="gallery.kind === 'video'">· video</span>
             </div>
         </div>
         <div class="row">

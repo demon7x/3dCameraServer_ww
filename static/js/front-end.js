@@ -12,6 +12,7 @@ var app = new Vue({
         projectName: (typeof localStorage !== 'undefined' && localStorage.getItem('projectName')) || '',
         cameras: [],
         videos: [],
+        gallery: { open: false, kind: null, index: 0 },
         photos: [
             {
                 imagePath: '/img/placeholder.png',
@@ -45,6 +46,17 @@ var app = new Vue({
                 (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
             );
         },
+        galleryList: function () {
+            return this.gallery.kind === 'video' ? this.orderedVideos : this.orderedPhotos;
+        },
+        currentItem: function () {
+            var list = this.galleryList;
+            if (!list.length) return {};
+            var i = this.gallery.index;
+            if (i < 0) i = 0;
+            if (i >= list.length) i = list.length - 1;
+            return list[i] || {};
+        },
         majorityCommit: function () {
             var counts = {};
             for (var i = 0; i < this.cameras.length; i++) {
@@ -64,6 +76,8 @@ var app = new Vue({
         this.socket = io('http://' + location.hostname + ':3000');
 
         this.socket.emit('client-online', {});
+
+        window.addEventListener('keydown', this.onGalleryKey);
 
         var that = this;
         this.socket.on('camera-update', function(response) {
@@ -158,6 +172,26 @@ var app = new Vue({
         },
         syncClockAll: function () {
             this.socket.emit('sync-all-now', {});
+        },
+        openGallery: function (kind, index) {
+            this.gallery = { open: true, kind: kind, index: index || 0 };
+        },
+        closeGallery: function () {
+            this.gallery.open = false;
+        },
+        galleryPrev: function () {
+            var n = this.galleryList.length; if (!n) return;
+            this.gallery.index = (this.gallery.index - 1 + n) % n;
+        },
+        galleryNext: function () {
+            var n = this.galleryList.length; if (!n) return;
+            this.gallery.index = (this.gallery.index + 1) % n;
+        },
+        onGalleryKey: function (e) {
+            if (!this.gallery.open) return;
+            if (e.key === 'Escape')        { this.closeGallery(); e.preventDefault(); }
+            else if (e.key === 'ArrowLeft')  { this.galleryPrev(); e.preventDefault(); }
+            else if (e.key === 'ArrowRight') { this.galleryNext(); e.preventDefault(); }
         },
         ntpLabel: function (camera) {
             var n = camera.ntp;
