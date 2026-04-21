@@ -123,6 +123,15 @@ var app = new Vue({
         updateSoftware: function () {
             this.socket.emit('update-software', {});
         },
+        rebootAll: function () {
+            var n = this.cameras.filter(function (c) { return c.connected !== false; }).length;
+            if (!confirm('연결된 카메라 ' + n + '대를 모두 재부팅합니다. 계속할까요?')) return;
+            this.socket.emit('reboot-all', {});
+        },
+        rebootCamera: function (socketId, name) {
+            if (!confirm('"' + (name || socketId) + '" 카메라를 재부팅합니다. 계속할까요?')) return;
+            this.socket.emit('reboot-camera', {socketId: socketId});
+        },
         updateName: function (socketId, event) {
             console.log("Update name", socketId, event.target.value);
             this.socket.emit('update-name', {socketId: socketId, newName: event.target.value});

@@ -79,11 +79,15 @@
                             <td><code>{{ camera.commit || '-' }}</code></td>
                             <td><input type="text" name="deviceName" @keyup.enter="updateName(camera.socketId, $event)"></td>
                             <td><input type="text" name="customCommand" @input="updateCustomCommand(camera.socketId, $event)" :value="customCommands[camera.socketId]" ref="customCommandInputs" class="custom-command-input"></td>
-                            <td><input type="button" value="Preview" class="btn btn-info" v-on:click="preview(camera.socketId)"></td>
+                            <td>
+                                <input type="button" value="Preview" class="btn btn-info" v-on:click="preview(camera.socketId)">
+                                <input type="button" value="Reboot" class="btn btn-warning" v-on:click="rebootCamera(camera.socketId, camera.name)">
+                            </td>
                         </tr>
                     </tbody>
                 </table>
                 <input type="button" value="Update Software" class="btn btn-info" v-on:click="updateSoftware">
+                <input type="button" value="Reboot All" class="btn btn-danger" v-on:click="rebootAll">
             </div>
         </div>
     </div>

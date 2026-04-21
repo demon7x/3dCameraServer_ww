@@ -228,6 +228,20 @@ io.on('connection', function (socket) {
 
     });
 
+    socket.on('reboot-all', function (msg) {
+        console.log('[reboot-all] broadcasting reboot to all cameras');
+        io.emit('reboot');
+    });
+
+    socket.on('reboot-camera', function (msg) {
+        if (!msg || !msg.socketId) return;
+        var i = findCameraIndex(msg.socketId);
+        if (cameras[i]) {
+            console.log('[reboot-camera] ' + (cameras[i].name || cameras[i].hostName));
+            io.to(cameras[i].socketId).emit('reboot');
+        }
+    });
+
     socket.on('update-result', function (msg) {
         var i = findCameraIndex(socket.id);
         var camName = (cameras[i] && cameras[i].name) || (msg && msg.cameraName) || 'unknown';
