@@ -429,6 +429,24 @@
 
         document.getElementById('saveConfigButton').addEventListener('click', function () { saveConfig(false); });
 
+        // Text inputs for photo/video extras participate in auto-save too.
+        // Debounce 1.2s after the last keystroke so typing doesn't spam.
+        function scheduleTextSave() {
+            if (!document.getElementById('autoSaveToggle').checked) return;
+            clearTimeout(autoSaveDebounce);
+            autoSaveDebounce = setTimeout(function () { saveConfig(true); }, 1200);
+        }
+        photoArgsEl.addEventListener('input', scheduleTextSave);
+        videoArgsEl.addEventListener('input', scheduleTextSave);
+        // Also commit on blur regardless of auto-save state, so leaving the
+        // field feels like a deliberate commit.
+        function saveOnBlur() {
+            if (document.getElementById('autoSaveToggle').checked) return; // handled above
+            saveConfig(true);
+        }
+        photoArgsEl.addEventListener('blur', saveOnBlur);
+        videoArgsEl.addEventListener('blur', saveOnBlur);
+
         // Persist the auto-save checkbox across page reloads.
         var autoSaveEl = document.getElementById('autoSaveToggle');
         try { autoSaveEl.checked = localStorage.getItem('previewAutoSave') === '1'; } catch (e) {}

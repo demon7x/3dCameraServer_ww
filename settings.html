@@ -140,7 +140,13 @@
             this.socket.emit('client-online', {});
             this.socket.on('connect', function () { that.refresh(); });
             this.socket.on('all-configs', function (msg) {
-                that.cameras = (msg && msg.cameras) || [];
+                var list = (msg && msg.cameras) || [];
+                list.sort(function (a, b) {
+                    return (a.name || a.hostName || '').localeCompare(
+                        b.name || b.hostName || '', undefined, { numeric: true }
+                    );
+                });
+                that.cameras = list;
             });
             this.socket.on('all-configs-saved', function (msg) {
                 that.flash = 'applied to ' + (msg && msg.applied) + ' cameras';
