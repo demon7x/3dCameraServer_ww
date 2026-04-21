@@ -37,6 +37,20 @@ var app = new Vue({
             return this.photos.slice().sort((a, b) =>
                 (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
             );
+        },
+        majorityCommit: function () {
+            var counts = {};
+            for (var i = 0; i < this.cameras.length; i++) {
+                var c = this.cameras[i].commit;
+                if (c && c !== 'unknown') {
+                    counts[c] = (counts[c] || 0) + 1;
+                }
+            }
+            var best = null, bestN = 0;
+            for (var k in counts) {
+                if (counts[k] > bestN) { best = k; bestN = counts[k]; }
+            }
+            return best;
         }
     },
     created: function () {
@@ -123,6 +137,11 @@ var app = new Vue({
         updateCustomCommand: function (socketId, event) {
             console.log("Update custom command", socketId, event.target.value);
             this.customCommands[socketId] = event.target.value;
+        },
+        isCommitStale: function (camera) {
+            if (!this.majorityCommit) return false;
+            if (!camera.commit || camera.commit === 'unknown') return true;
+            return camera.commit !== this.majorityCommit;
         },
         updateAllCustomCommands: function () {
             console.log("Updating all custom commands with photoCommand:", this.photoCommand);

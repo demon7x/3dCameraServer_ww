@@ -62,19 +62,21 @@
                             <th>Photo Status</th>
                             <th>Photo Error</th>
                             <th>Version</th>
+                            <th>Commit</th>
                             <th>New Name</th>
                             <th>Custom Text</th>
                             <th>Config</th>
                         </tr>
                     </thead>
                     <tbody id="cameraList">
-                        <tr v-for="camera in orderedCameras" v-bind:class="{ danger: camera.lastUpdateProblem }">
+                        <tr v-for="camera in orderedCameras" v-bind:class="{ danger: camera.lastUpdateProblem, warning: isCommitStale(camera) }">
                             <td>{{ camera.name }}</td>
                             <td>{{ camera.ipAddress }}</td>
                             <td>{{ camera.timeSinceLastUpdate }}</td>
                             <td>{{ camera.photoStatus }}</td>
                             <td>{{ camera.photoError }}</td>
                             <td>{{ camera.version }}</td>
+                            <td><code>{{ camera.commit || '-' }}</code></td>
                             <td><input type="text" name="deviceName" @keyup.enter="updateName(camera.socketId, $event)"></td>
                             <td><input type="text" name="customCommand" @input="updateCustomCommand(camera.socketId, $event)" :value="customCommands[camera.socketId]" ref="customCommandInputs" class="custom-command-input"></td>
                             <td><input type="button" value="Preview" class="btn btn-info" v-on:click="preview(camera.socketId)"></td>

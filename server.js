@@ -100,6 +100,7 @@ io.on('connection', function (socket) {
         cameras[i].lastCheckin      = new Date();
         cameras[i].updateInProgress = msg.updateInProgress;
         cameras[i].status           = msg.status || 'idle';
+        cameras[i].commit           = msg.commit || 'unknown';
         if (msg.version) {
             cameras[i].version = msg.version;
         }
