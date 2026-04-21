@@ -152,8 +152,11 @@ io.on('connection', function (socket) {
 
         for (let i = 0; i < cameras.length; i++) {
             if (cameras[i].type == 'camera') {
-                cameras[i].waitingOnPhoto = true;
-                cameras[i].receivedPhoto  = false;
+                cameras[i].waitingOnPhoto   = true;
+                cameras[i].receivedPhoto    = false;
+                cameras[i].photoError       = false;
+                cameras[i].photoErrorReason = null;
+                cameras[i].photoErrorStage  = null;
 
                 if (msg.customCommands[cameras[i].socketId]) {
                     cameras[i].customCommand = msg.customCommands[cameras[i].socketId];
@@ -270,12 +273,24 @@ io.on('connection', function (socket) {
     // There was an error taking a photo, update our data and the clients
     socket.on('photo-error', function(msg){
         var i = findCameraIndex(socket.id);
-        cameras[i].photoError     = true;
-        cameras[i].waitingOnPhoto = false;
-        cameras[i].photoSending   = false;
-        cameras[i].receivedPhoto  = false;
+        var camName = (cameras[i] && cameras[i].name) || (msg && msg.cameraName) || 'unknown';
+        console.log(
+            '[photo-error] camera=' + camName +
+            ' stage=' + (msg.stage || '?') +
+            ' exitCode=' + (msg.exitCode != null ? msg.exitCode : '-') +
+            ' signal=' + (msg.signal || '-') +
+            ' timedOut=' + !!msg.timedOut +
+            ' reason=' + (msg.reason || '-')
+        );
+        if (cameras[i]) {
+            cameras[i].photoError       = true;
+            cameras[i].photoErrorReason = msg.reason || ('stage:' + (msg.stage || '?'));
+            cameras[i].photoErrorStage  = msg.stage || null;
+            cameras[i].waitingOnPhoto   = false;
+            cameras[i].photoSending     = false;
+            cameras[i].receivedPhoto    = false;
+        }
         io.emit('photo-error', msg);
-        //io.emit('camera-update', cameras);
     });
     socket.on('preview', function (msg) {
         console.log(msg);

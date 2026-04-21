@@ -66,7 +66,8 @@ var app = new Vue({
                 if (response[i].type == 'camera') {
                     var photoError = '';
                     if (response[i].photoError) {
-                        photoError = 'yes';
+                        var stage = response[i].photoErrorStage ? '[' + response[i].photoErrorStage + '] ' : '';
+                        photoError = stage + (response[i].photoErrorReason || 'yes');
                     }
                     response[i].photoError = photoError;
                     lastUpdateProblem = false;
