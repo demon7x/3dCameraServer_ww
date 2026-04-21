@@ -99,10 +99,15 @@
     </div>
     <div class="row">
         <button id="saveConfigButton" style="background: var(--gold); color: #000; font-weight: 600;">Apply & Save</button>
+        <label style="margin-left: 16px; display: inline-block;">
+            <input type="checkbox" id="autoSaveToggle" style="vertical-align: middle;">
+            Auto-save on change
+            <span style="color: var(--text-dim); font-size: 11px;">(slider changes persist to photoArgs/videoArgs so next Take Photo/Video also uses them)</span>
+        </label>
         <span id="saveConfigStatus" style="color: var(--text-dim); margin-left: 10px;"></span>
         <div style="color: var(--text-dim); font-size: 12px; margin-top: 6px;">
             Live Controls are converted to <code>--shutter / --gain / --awb / --brightness / --contrast / --saturation / --lens-position</code>
-            and combined with the extras above. On reopen, stored values initialize the sliders automatically.
+            and written to BOTH photoArgs and videoArgs. Subsequent Take Photo and Take Video use them without re-entering Preview.
         </div>
     </div>
 
@@ -199,9 +204,14 @@
         });
 
         var controlsDebounce = null;
+        var autoSaveDebounce = null;
         function scheduleControls() {
             clearTimeout(controlsDebounce);
             controlsDebounce = setTimeout(function () { flushControls(false); }, 150);
+            if (document.getElementById('autoSaveToggle').checked) {
+                clearTimeout(autoSaveDebounce);
+                autoSaveDebounce = setTimeout(function () { saveConfig(true); }, 800);
+            }
         }
 
         function currentControls() {
@@ -394,8 +404,8 @@
             }
         });
 
-        document.getElementById('saveConfigButton').addEventListener('click', function () {
-            saveConfigStatus.textContent = 'saving...';
+        function saveConfig(silent) {
+            saveConfigStatus.textContent = silent ? 'auto-saving...' : 'saving...';
             var structured = slidersToArgs();
             var photoExtras = photoArgsEl.value.trim();
             var videoExtras = videoArgsEl.value.trim();
@@ -413,8 +423,17 @@
             });
 
             // Also flush current live state to the running preview so the
-            // Save doubles as Apply.
+            // save doubles as apply.
             flushControls(false);
+        }
+
+        document.getElementById('saveConfigButton').addEventListener('click', function () { saveConfig(false); });
+
+        // Persist the auto-save checkbox across page reloads.
+        var autoSaveEl = document.getElementById('autoSaveToggle');
+        try { autoSaveEl.checked = localStorage.getItem('previewAutoSave') === '1'; } catch (e) {}
+        autoSaveEl.addEventListener('change', function () {
+            try { localStorage.setItem('previewAutoSave', autoSaveEl.checked ? '1' : '0'); } catch (e) {}
         });
     </script>
 </body>
