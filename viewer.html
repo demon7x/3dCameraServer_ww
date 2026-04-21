@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <title>3D Scanner — All Cameras Viewer</title>
+    <script src="/js/vue.js"></script>
+    <style>
+        body { background: #111; color: #eee; font-family: sans-serif; margin: 0; }
+        header {
+            position: sticky; top: 0; z-index: 10;
+            background: #1c1c1c; padding: 8px 12px;
+            display: flex; align-items: center; gap: 12px;
+            border-bottom: 1px solid #333;
+        }
+        header h1 { font-size: 14px; margin: 0; flex: 1; }
+        header button {
+            background: #2d5a9e; color: #fff; border: 0;
+            padding: 6px 14px; cursor: pointer; border-radius: 3px;
+        }
+        header button.stop { background: #9e2d3a; }
+        header a { color: #9ec7ff; text-decoration: none; font-size: 13px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 6px;
+            padding: 6px;
+        }
+        .cam {
+            background: #000; position: relative;
+            display: flex; flex-direction: column;
+        }
+        .cam img {
+            width: 100%; aspect-ratio: 4 / 3;
+            object-fit: cover; background: #222; display: block;
+        }
+        .label {
+            position: absolute; bottom: 6px; left: 6px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 2px 8px; font-size: 12px; border-radius: 2px;
+        }
+        .cam.offline { opacity: 0.45; }
+        .cam.offline .label { background: #6b1c2a; }
+        .empty { padding: 40px; text-align: center; color: #888; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <h1>Cameras: {{ onlineCount }} online / {{ cameras.length }} total</h1>
+        <button @click="startAll">Start All</button>
+        <button class="stop" @click="stopAll">Stop All</button>
+        <a href="/">← back to main</a>
+    </header>
+
+    <div v-if="!cameras.length" class="empty">
+        no cameras connected
+    </div>
+
+    <div class="grid">
+        <div v-for="cam in orderedCameras"
+             :key="cam.socketId || cam.name"
+             class="cam"
+             :class="{offline: cam.connected === false}">
+            <img v-if="cam.ipAddress && cam.connected !== false && streaming"
+                 :src="streamUrl(cam)"
+                 :alt="cam.name">
+            <img v-else src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg'/>" alt="">
+            <div class="label">{{ cam.name || cam.hostName || '?' }}</div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/socket.io-1.4.5.js"></script>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            socket: null,
+            cameras: [],
+            streaming: false,
+            bust: Date.now()
+        },
+        computed: {
+            orderedCameras: function () {
+                return this.cameras.slice().sort(function (a, b) {
+                    return (a.name || '').localeCompare(b.name || '', undefined, {numeric: true});
+                });
+            },
+            onlineCount: function () {
+                return this.cameras.filter(function (c) { return c.connected !== false; }).length;
+            }
+        },
+        methods: {
+            streamUrl: function (cam) {
+                return 'http://' + cam.ipAddress + ':8888/?t=' + this.bust;
+            },
+            startAll: function () {
+                this.bust = Date.now();
+                this.streaming = true;
+                var ids = this.cameras
+                    .filter(function (c) { return c.connected !== false && c.socketId; })
+                    .map(function (c) { return c.socketId; });
+                this.socket.emit('start-all-previews', { socketIds: ids });
+            },
+            stopAll: function () {
+                this.streaming = false;
+                this.socket.emit('stop-all-previews', {});
+            }
+        },
+        created: function () {
+            this.socket = io('http://' + location.hostname + ':3000');
+            this.socket.emit('client-online', {});
+
+            var that = this;
+            this.socket.on('camera-update', function (response) {
+                that.cameras = response.filter(function (r) { return r.type === 'camera'; });
+            });
+
+            window.addEventListener('beforeunload', function () {
+                that.stopAll();
+            });
+        }
+    });
+</script>
+</body>
+</html>

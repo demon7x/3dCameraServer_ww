@@ -10,6 +10,7 @@ var app = new Vue({
         customCommands: {}, // 커맨드 값을 저장할 객체
         photoCommand :"",
         cameras: [],
+        videos: [],
         photos: [
             {
                 imagePath: '/img/placeholder.png',
@@ -35,6 +36,11 @@ var app = new Vue({
         },
         orderedPhotos: function () {
             return this.photos.slice().sort((a, b) =>
+                (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
+            );
+        },
+        orderedVideos: function () {
+            return this.videos.slice().sort((a, b) =>
                 (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
             );
         },
@@ -91,9 +97,17 @@ var app = new Vue({
         this.socket.on('photo-error', function(data){
             console.log(data);
         });
-        
+
         this.socket.on('take-photo', function(data){
             that.photos = [];
+        });
+
+        this.socket.on('new-video', function (data) {
+            that.videos.push(data);
+        });
+
+        this.socket.on('take-video', function (data) {
+            that.videos = [];
         });
     },
     methods: {

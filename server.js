@@ -24,41 +24,84 @@ app.get('/preview', function (request, response) {
     response.sendFile(__dirname + '/preview.html');
 });
 
+app.get('/viewer', function (request, response) {
+    response.sendFile(__dirname + '/viewer.html');
+});
+
 
 app.post('/new-image', upload.single('image'), function (request, response) {
     console.log("received a new image", request.body.socketId);
     if (!request.file || !request.body.startTime) {
-        return;
+        return response.sendStatus(400);
     }
 
-    request.body.takeId;
-
     let folderName = getFolderName(request.body.startTime);
-    let imagePath  = './images/' + folderName + '/' + request.body.fileName;
+    let folderDir  = './images/' + folderName;
+    if (!fs.existsSync(folderDir)) fs.mkdirSync(folderDir, { recursive: true });
+    let imagePath  = folderDir + '/' + request.body.fileName;
 
     var tmpPath = './' + request.file.path;
 
     fs.rename(tmpPath, imagePath, function(err) {
-        if (err) throw err;
+        if (err) {
+            console.error('rename image failed:', err);
+            return response.sendStatus(500);
+        }
 
-        // The camera has been moved to the right place, update our data array to show this
         var i = findCameraIndexByName(request.body.cameraName);
-        cameras[i].photoError     = false;
-        cameras[i].waitingOnPhoto = false;
-        cameras[i].photoSending   = false;
-        cameras[i].receivedPhoto  = true;
-        cameras[i].latestImage    = folderName + '/' + request.body.fileName;
-
-        fs.unlink(tmpPath, function() {
-            if (err) throw err;
-        });
+        if (cameras[i]) {
+            cameras[i].photoError     = false;
+            cameras[i].waitingOnPhoto = false;
+            cameras[i].photoSending   = false;
+            cameras[i].receivedPhoto  = true;
+            cameras[i].latestImage    = folderName + '/' + request.body.fileName;
+        }
     });
 
     response.sendStatus(201);
 });
 
+app.post('/new-video', upload.single('video'), function (request, response) {
+    console.log('received a new video from', request.body.cameraName, 'startTime=' + request.body.startTime);
+    if (!request.file || !request.body.startTime) {
+        return response.sendStatus(400);
+    }
+
+    var folderName = getFolderName(request.body.startTime);
+    var folderDir  = './videos/' + folderName;
+    if (!fs.existsSync(folderDir)) fs.mkdirSync(folderDir, { recursive: true });
+
+    var fileName = request.body.fileName || (request.body.cameraName || 'camera') + '.mp4';
+    var videoPath = folderDir + '/' + fileName;
+    var relPath   = folderName + '/' + fileName;
+    var tmpPath   = './' + request.file.path;
+
+    fs.rename(tmpPath, videoPath, function (err) {
+        if (err) {
+            console.error('rename video failed:', err);
+            return response.sendStatus(500);
+        }
+
+        var i = findCameraIndexByName(request.body.cameraName);
+        if (cameras[i]) {
+            cameras[i].latestVideo = relPath;
+        }
+
+        io.emit('new-video', {
+            cameraName: request.body.cameraName,
+            fileName: fileName,
+            videoPath: '/videos/' + relPath,
+            startTime: request.body.startTime,
+            time: Date.now()
+        });
+
+        response.sendStatus(201);
+    });
+});
+
 app.use(express.static('static'));
 app.use(express.static('images'));
+app.use('/videos', express.static('videos'));
 
 // Setup on port 8080 as well for the web app
 app.listen(8080, function () {
@@ -196,24 +239,26 @@ io.on('connection', function (socket) {
 
     socket.on('take-video', function (msg) {
         console.log("Start video recording");
-    
-        // Ensure the video folder exists for storing videos
-        let folderName = './videos/' + getFolderName(msg.time);
-    
+        msg = msg || {};
+
+        // Inject a future start timestamp so all cameras try to begin
+        // recording at the same wall-clock instant. Default 1500ms buffer
+        // absorbs LAN latency + small clock drift; tighten once NTP is up.
+        msg.startAt = Date.now() + 1500;
+
+        let folderName = './videos/' + getFolderName(msg.time || Date.now());
         if (!fs.existsSync(folderName)) {
             fs.mkdirSync(folderName, { recursive: true });
         }
-    
-        // Broadcast the video recording message to all cameras
+
         io.emit('take-video', msg);
-        console.log(msg);
-    
+        console.log('[take-video] startAt=' + msg.startAt + ' cameras=' + cameras.filter(function(c){return c.type==='camera' && c.connected!==false;}).length);
+
         for (let i = 0; i < cameras.length; i++) {
             if (cameras[i].type === 'camera') {
-                cameras[i].waitingOnVideo = true; // Indicate that the camera is recording
-                cameras[i].receivedVideo = false; // Reset the received status
-    
-                // Apply custom commands for each camera if provided
+                cameras[i].waitingOnVideo = true;
+                cameras[i].receivedVideo = false;
+
                 if (msg.customCommands && msg.customCommands[cameras[i].socketId]) {
                     cameras[i].customCommand = msg.customCommands[cameras[i].socketId];
                 }
@@ -374,6 +419,26 @@ io.on('connection', function (socket) {
         var i = findCameraIndex(msg.socketId);
         if (cameras[i]) {
             io.to(cameras[i].socketId).emit('stop-preview');
+        }
+    });
+
+    socket.on('start-all-previews', function (msg) {
+        console.log('[start-all-previews] requested by client=' + socket.id);
+        for (var j = 0; j < cameras.length; j++) {
+            var c = cameras[j];
+            if (c.type === 'camera' && c.connected !== false) {
+                io.to(c.socketId).emit('preview', { clientSocketId: socket.id });
+            }
+        }
+    });
+
+    socket.on('stop-all-previews', function () {
+        console.log('[stop-all-previews]');
+        for (var j = 0; j < cameras.length; j++) {
+            var c = cameras[j];
+            if (c.type === 'camera' && c.connected !== false) {
+                io.to(c.socketId).emit('stop-preview');
+            }
         }
     });
 
