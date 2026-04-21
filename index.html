@@ -76,6 +76,7 @@
                             <th>Photo Error</th>
                             <th>Version</th>
                             <th>Commit</th>
+                            <th>NTP</th>
                             <th>New Name</th>
                             <th>Custom Text</th>
                             <th>Config</th>
@@ -90,6 +91,7 @@
                             <td :title="camera.photoError">{{ camera.photoError }}</td>
                             <td>{{ camera.version }}</td>
                             <td><code>{{ camera.commit || '-' }}</code></td>
+                            <td :title="ntpTitle(camera)" :style="{color: ntpColor(camera)}">{{ ntpLabel(camera) }}</td>
                             <td><input type="text" name="deviceName" @keyup.enter="updateName(camera.socketId, $event)"></td>
                             <td><input type="text" name="customCommand" @input="updateCustomCommand(camera.socketId, $event)" :value="customCommands[camera.socketId]" ref="customCommandInputs" class="custom-command-input"></td>
                             <td>
@@ -100,6 +102,8 @@
                     </tbody>
                 </table>
                 <input type="button" value="Update Software" class="btn btn-info" v-on:click="updateSoftware">
+                <input type="button" value="Enable NTP All" class="btn btn-default" v-on:click="enableNtpAll">
+                <input type="button" value="Sync Clock All" class="btn btn-default" v-on:click="syncClockAll">
                 <input type="button" value="Reboot All" class="btn btn-danger" v-on:click="rebootAll">
             </div>
         </div>

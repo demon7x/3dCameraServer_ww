@@ -151,6 +151,35 @@ var app = new Vue({
             if (!confirm('연결된 카메라 ' + n + '대를 모두 재부팅합니다. 계속할까요?')) return;
             this.socket.emit('reboot-all', {});
         },
+        enableNtpAll: function () {
+            var server = prompt('NTP 서버 주소 (비우면 기본 pool.ntp.org 사용):', '');
+            if (server === null) return;
+            this.socket.emit('enable-ntp-all', { server: server.trim() });
+        },
+        syncClockAll: function () {
+            this.socket.emit('sync-all-now', {});
+        },
+        ntpLabel: function (camera) {
+            var n = camera.ntp;
+            if (!n || n.synchronized == null) return '?';
+            if (!n.synchronized) return 'no';
+            if (n.offsetMs != null) return 'yes (' + n.offsetMs + 'ms)';
+            return 'yes';
+        },
+        ntpColor: function (camera) {
+            var n = camera.ntp;
+            if (!n || n.synchronized == null) return '#888';
+            return n.synchronized ? '#4caf50' : '#d64545';
+        },
+        ntpTitle: function (camera) {
+            var n = camera.ntp;
+            if (!n) return 'NTP status unknown';
+            var parts = [];
+            parts.push('synchronized: ' + (n.synchronized ? 'yes' : 'no'));
+            if (n.server) parts.push('server: ' + n.server);
+            if (n.offsetMs != null) parts.push('system offset: ' + n.offsetMs + 'ms');
+            return parts.join('\n');
+        },
         rebootCamera: function (socketId, name) {
             if (!confirm('"' + (name || socketId) + '" 카메라를 재부팅합니다. 계속할까요?')) return;
             this.socket.emit('reboot-camera', {socketId: socketId});

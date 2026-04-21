@@ -209,6 +209,7 @@ io.on('connection', function (socket) {
             cameras[i].version = msg.version;
         }
         cameras[i].hostName = msg.hostName || null;
+        cameras[i].ntp      = msg.ntp || cameras[i].ntp || null;
 
         // Push stored config to the camera once per socket (first heartbeat).
         if (!wasConnected && cameras[i].hostName) {
@@ -325,6 +326,26 @@ io.on('connection', function (socket) {
     socket.on('reboot-all', function (msg) {
         console.log('[reboot-all] broadcasting reboot to all cameras');
         io.emit('reboot');
+    });
+
+    socket.on('enable-ntp-all', function (msg) {
+        var server = msg && msg.server ? String(msg.server) : '';
+        console.log('[ntp] enable-ntp-all server=' + (server || '(default)'));
+        io.emit('enable-ntp', { server: server });
+    });
+
+    socket.on('sync-all-now', function () {
+        console.log('[ntp] sync-all-now');
+        io.emit('sync-now');
+    });
+
+    socket.on('enable-ntp-camera', function (msg) {
+        if (!msg || !msg.socketId) return;
+        var i = findCameraIndex(msg.socketId);
+        if (cameras[i]) {
+            console.log('[ntp] enable-ntp-camera ' + (cameras[i].name || cameras[i].hostName));
+            io.to(cameras[i].socketId).emit('enable-ntp', { server: msg.server || '' });
+        }
     });
 
     socket.on('reboot-camera', function (msg) {
