@@ -332,16 +332,31 @@ io.on('connection', function (socket) {
         io.emit('photo-error', msg);
     });
     socket.on('preview', function (msg) {
-        console.log(msg);
-        console.log("Preview request for camera", msg.socketId);
-        var i = findCameraIndex(msg.socketId);
-        let camera = cameras[i]
+        console.log("Preview request for camera", msg && msg.socketId, "from client", socket.id);
+        var i = findCameraIndex(msg && msg.socketId);
+        let camera = cameras[i];
         if (camera) {
             io.to(camera.socketId).emit('preview', { cameraId: msg.cameraId, clientSocketId: socket.id });
+        } else {
+            console.log("Camera not found for preview:", msg && msg.socketId);
         }
-        else{
+    });
 
-            console.log("Camera not found");
+    // Pi reports the URL its MJPEG server is listening on; forward to the
+    // originating browser client.
+    socket.on('preview-url', function (msg) {
+        if (!msg) return;
+        var payload = typeof msg === 'string' ? { url: msg } : msg;
+        if (payload.clientSocketId) {
+            io.to(payload.clientSocketId).emit('preview-url', payload.url);
+        }
+    });
+
+    socket.on('stop-preview', function (msg) {
+        if (!msg || !msg.socketId) return;
+        var i = findCameraIndex(msg.socketId);
+        if (cameras[i]) {
+            io.to(cameras[i].socketId).emit('stop-preview');
         }
     });
 

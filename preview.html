@@ -4,67 +4,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Preview</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #video { display: block; max-width: 100%; width: 640px; background: #222; min-height: 480px; }
+        .status { color: #888; font-size: 13px; margin-top: 8px; }
+        .row { margin: 12px 0; }
+        button { padding: 6px 14px; margin-right: 8px; }
+    </style>
 </head>
 <body>
     <h1>Camera Preview</h1>
-    <video id="video" width="640" height="480" controls autoplay></video>
-    <br>
-    <label for="focusRange">Focus:</label>
-    <input type="range" id="focusRange" min="0.0" max="10.0" step="0.1">
-    <br>
-    <button id="startStreamButton">Start Stream</button>
-    <button id="stopStreamButton">Stop Stream</button>
-    <button id="takePhotoButton">Take Photo</button>
+    <img id="video" alt="preview stream">
+    <div class="status" id="status">waiting for stream...</div>
+
+    <div class="row">
+        <label for="focusRange">Focus:</label>
+        <input type="range" id="focusRange" min="0.0" max="10.0" step="0.1">
+    </div>
+
+    <div class="row">
+        <button id="startStreamButton">Restart Stream</button>
+        <button id="stopStreamButton">Stop Stream</button>
+        <button id="takePhotoButton">Take Photo</button>
+    </div>
+
     <script src="/js/socket.io-1.4.5.js"></script>
-
     <script>
-        console.log('Starting camera preview');
+        var urlParams = new URLSearchParams(window.location.search);
+        var socketId = urlParams.get('socketId');
+        var socket = io('http://' + location.hostname + ':3000');
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const socketId = urlParams.get('socketId');
-        const clientId = urlParams.get('socketId');
-        const socket = io('http://' + location.hostname + ':3000');
+        var videoElement = document.getElementById('video');
+        var statusElement = document.getElementById('status');
+        var focusRange = document.getElementById('focusRange');
 
-        //const socket = io('http://localhost:3000'); // Adjust the server URL if necessary
+        function setStatus(text) { statusElement.textContent = text; }
 
-        const videoElement = document.getElementById('video');
-        const focusRange = document.getElementById('focusRange');
-        const startStreamButton = document.getElementById('startStreamButton');
-        const stopStreamButton = document.getElementById('stopStreamButton');
-        const takePhotoButton = document.getElementById('takePhotoButton');
+        function startPreview() {
+            setStatus('requesting stream...');
+            socket.emit('preview', { socketId: socketId, clientId: socketId });
+        }
 
-        let focusTimeout;
+        function stopPreview() {
+            socket.emit('stop-preview', { socketId: socketId });
+            videoElement.removeAttribute('src');
+            setStatus('stopped');
+        }
 
-        // Handle focus range input
-        focusRange.addEventListener('input', () => {
-            clearTimeout(focusTimeout);
-            focusTimeout = setTimeout(() => {
-                const focusValue = focusRange.value;
-                socket.emit('update-focus', { socketId:socketId,focusValue: focusValue });
-                console.log(`Focus value set to: ${focusValue}`);
-            }, 500); // Adjust the debounce delay as needed
+        // Auto-start as soon as the socket is ready
+        socket.on('connect', function () {
+            if (socketId) startPreview();
+            else setStatus('missing socketId query param');
         });
 
-        // Handle start stream button click
-        startStreamButton.addEventListener('click', () => {
-            socket.emit('preview', { socketId: socketId, clientId: clientId });
+        socket.on('preview-url', function (url) {
+            console.log('Preview URL:', url);
+            // Cache-bust so browser doesn't reuse a dead connection.
+            videoElement.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now();
+            setStatus('streaming from ' + url);
         });
 
-        // Handle stop stream button click
-        stopStreamButton.addEventListener('click', () => {
-            socket.emit('stop-preview');
+        videoElement.addEventListener('error', function () {
+            setStatus('stream connection failed — retrying in 2s');
+            setTimeout(function () {
+                if (videoElement.src) {
+                    var base = videoElement.src.split('?')[0];
+                    videoElement.src = base + '?t=' + Date.now();
+                }
+            }, 2000);
         });
 
-        // Handle take photo button click
-        takePhotoButton.addEventListener('click', () => {
+        document.getElementById('startStreamButton').addEventListener('click', startPreview);
+        document.getElementById('stopStreamButton').addEventListener('click', stopPreview);
+        document.getElementById('takePhotoButton').addEventListener('click', function () {
             socket.emit('take-photo', { time: Date.now() });
         });
 
-        // Handle incoming preview URL
-        socket.on('preview-url', (url) => {
-            console.log(`Preview URL: ${url}`);
-            videoElement.src = url;
+        var focusTimeout;
+        focusRange.addEventListener('input', function () {
+            clearTimeout(focusTimeout);
+            focusTimeout = setTimeout(function () {
+                socket.emit('update-focus', { socketId: socketId, focusValue: focusRange.value });
+            }, 500);
         });
+
+        window.addEventListener('beforeunload', stopPreview);
     </script>
 </body>
 </html>
