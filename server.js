@@ -347,8 +347,11 @@ io.on('connection', function (socket) {
     socket.on('preview-url', function (msg) {
         if (!msg) return;
         var payload = typeof msg === 'string' ? { url: msg } : msg;
+        console.log('[preview-url] from=' + socket.id + ' to=' + (payload.clientSocketId || '-') + ' url=' + payload.url);
         if (payload.clientSocketId) {
             io.to(payload.clientSocketId).emit('preview-url', payload.url);
+        } else {
+            console.log('[preview-url] dropped: no clientSocketId');
         }
     });
 

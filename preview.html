@@ -53,6 +53,7 @@
 
         // Auto-start as soon as the socket is ready
         socket.on('connect', function () {
+            console.log('preview socket connected, id=', socket.id, 'cameraSocketId=', socketId);
             if (socketId) startPreview();
             else setStatus('missing socketId query param');
         });
