@@ -200,6 +200,17 @@ io.on('connection', function (socket) {
 
     });
 
+    socket.on('update-result', function (msg) {
+        var i = findCameraIndex(socket.id);
+        var camName = (cameras[i] && cameras[i].name) || (msg && msg.cameraName) || 'unknown';
+        console.log('[update-result] camera=' + camName + ' ok=' + !!msg.ok +
+            (msg.stderrTail ? '\n  stderr: ' + msg.stderrTail.replace(/\n/g, ' | ') : ''));
+        if (cameras[i]) {
+            cameras[i].lastUpdateOk = !!msg.ok;
+            cameras[i].lastUpdateStderr = msg.stderrTail || null;
+        }
+    });
+
     socket.on('update-name', function(msg){
         console.log("Updating device name");
 
