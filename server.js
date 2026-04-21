@@ -8,10 +8,48 @@ var server = require('http').Server(app);
 var io = require('socket.io')(server);
 
 var fs = require('fs');
+var path = require('path');
 
 var cameras = [];
 
 var clientUpdateIntervalTimer;
+
+// --- Per-camera config store ----------------------------------------------
+// Persisted on disk as cameras-config.json, keyed by hostName. Holds
+// camera-specific preferences that should survive restarts and be pushed to
+// the Pi whenever it (re)connects.
+var CONFIG_FILE = path.join(__dirname, 'cameras-config.json');
+var camerasConfig = {};
+try {
+    if (fs.existsSync(CONFIG_FILE)) {
+        camerasConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8') || '{}');
+        console.log('[config] loaded ' + Object.keys(camerasConfig).length + ' camera config entries');
+    }
+} catch (e) {
+    console.error('[config] failed to load ' + CONFIG_FILE + ':', e.message);
+    camerasConfig = {};
+}
+
+function saveCamerasConfig() {
+    try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(camerasConfig, null, 2));
+    } catch (e) {
+        console.error('[config] write failed:', e.message);
+    }
+}
+
+function getCameraConfig(hostName) {
+    if (!hostName) return {};
+    return camerasConfig[hostName] || {};
+}
+
+function setCameraConfig(hostName, patch) {
+    if (!hostName) return {};
+    var current = camerasConfig[hostName] || {};
+    camerasConfig[hostName] = Object.assign({}, current, patch || {});
+    saveCamerasConfig();
+    return camerasConfig[hostName];
+}
 
 // Let the server listen on port 3000 for the websocket connection
 server.listen(3000);
@@ -158,6 +196,7 @@ io.on('connection', function (socket) {
             }
         }
 
+        var wasConnected = cameras[i].connected === true;
         cameras[i].type             = 'camera';
         cameras[i].connected        = true;
         cameras[i].name             = msg.name;
@@ -170,6 +209,15 @@ io.on('connection', function (socket) {
             cameras[i].version = msg.version;
         }
         cameras[i].hostName = msg.hostName || null;
+
+        // Push stored config to the camera once per socket (first heartbeat).
+        if (!wasConnected && cameras[i].hostName) {
+            var cfg = getCameraConfig(cameras[i].hostName);
+            if (Object.keys(cfg).length) {
+                io.to(cameras[i].socketId).emit('apply-config', cfg);
+                console.log('[config] pushed to ' + cameras[i].hostName + ':', cfg);
+            }
+        }
     });
 
 
@@ -242,9 +290,10 @@ io.on('connection', function (socket) {
         msg = msg || {};
 
         // Inject a future start timestamp so all cameras try to begin
-        // recording at the same wall-clock instant. Default 1500ms buffer
-        // absorbs LAN latency + small clock drift; tighten once NTP is up.
-        msg.startAt = Date.now() + 1500;
+        // recording at the same wall-clock instant. 2500ms buffer covers
+        // LAN latency + camera pre-warm for --signal mode; tighten once
+        // NTP is up.
+        msg.startAt = Date.now() + 2500;
 
         let folderName = './videos/' + getFolderName(msg.time || Date.now(), msg.project);
         if (!fs.existsSync(folderName)) {
@@ -296,6 +345,56 @@ io.on('connection', function (socket) {
             cameras[i].lastUpdateOk = !!msg.ok;
             cameras[i].lastUpdateStderr = msg.stderrTail || null;
         }
+    });
+
+    // --- Per-camera config edit endpoints ---------------------------------
+    socket.on('get-camera-config', function (msg) {
+        if (!msg) msg = {};
+        var host = msg.hostName;
+        if (!host && msg.socketId) {
+            var idx = findCameraIndex(msg.socketId);
+            if (cameras[idx]) host = cameras[idx].hostName || cameras[idx].name;
+        }
+        var cfg = getCameraConfig(host);
+        socket.emit('camera-config', { hostName: host, config: cfg });
+    });
+
+    socket.on('set-camera-config', function (msg) {
+        if (!msg) return;
+        var host = msg.hostName;
+        var targetSocketId = null;
+        if (!host && msg.socketId) {
+            var idx = findCameraIndex(msg.socketId);
+            if (cameras[idx]) {
+                host = cameras[idx].hostName || cameras[idx].name;
+                targetSocketId = cameras[idx].socketId;
+            }
+        } else if (host) {
+            for (var j = 0; j < cameras.length; j++) {
+                if ((cameras[j].hostName || cameras[j].name) === host) {
+                    targetSocketId = cameras[j].socketId;
+                    break;
+                }
+            }
+        }
+        if (!host) {
+            console.log('[config] set-camera-config with no host resolvable, ignored');
+            return;
+        }
+        var merged = setCameraConfig(host, msg.config || {});
+        console.log('[config] ' + host + ' updated:', merged);
+        if (targetSocketId) io.to(targetSocketId).emit('apply-config', merged);
+        // Acknowledge to the requester so the UI can confirm
+        socket.emit('camera-config', { hostName: host, config: merged, saved: true });
+    });
+
+    // Pi reports actual signal-fire time so we can log inter-camera skew.
+    socket.on('video-started', function (msg) {
+        if (!msg) return;
+        console.log('[video-started] ' + (msg.cameraName || msg.hostName || '?') +
+            ' target=' + msg.startAt +
+            ' actual=' + msg.actualStart +
+            ' skew=' + msg.skew + 'ms');
     });
 
     socket.on('update-name', function(msg){

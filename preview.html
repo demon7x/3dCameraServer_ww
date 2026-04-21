@@ -48,6 +48,21 @@
         <button id="takePhotoButton">Take Photo</button>
     </div>
 
+    <hr style="border-color: var(--border); margin: 28px 0 16px;">
+    <h2 style="color: var(--gold); font-size: 16px;">Camera Settings <span id="configCameraLabel" style="color: var(--text-dim); font-weight: normal; font-size: 13px;"></span></h2>
+    <div class="row">
+        <label style="display:block; margin-bottom:4px;">Photo args (appended to libcamera-still):</label>
+        <input type="text" id="photoArgs" placeholder="e.g. --awb daylight --ev 0.3" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
+    </div>
+    <div class="row">
+        <label style="display:block; margin-bottom:4px;">Video args (appended to libcamera-vid):</label>
+        <input type="text" id="videoArgs" placeholder="e.g. --denoise cdn_off --shutter 8000" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
+    </div>
+    <div class="row">
+        <button id="saveConfigButton" style="background: var(--gold); color: #000; font-weight: 600;">Save Settings</button>
+        <span id="saveConfigStatus" style="color: var(--text-dim); margin-left: 10px;"></span>
+    </div>
+
     <script src="/js/socket.io-1.4.5.js"></script>
     <script>
         var urlParams = new URLSearchParams(window.location.search);
@@ -129,6 +144,50 @@
         });
 
         window.addEventListener('beforeunload', stopPreview);
+
+        // --- Per-camera settings ---------------------------------------
+        var photoArgsEl      = document.getElementById('photoArgs');
+        var videoArgsEl      = document.getElementById('videoArgs');
+        var saveConfigStatus = document.getElementById('saveConfigStatus');
+        var configCameraLbl  = document.getElementById('configCameraLabel');
+
+        function requestConfig() {
+            socket.emit('get-camera-config', { socketId: socketId });
+        }
+
+        socket.on('connect', requestConfig);
+
+        socket.on('camera-config', function (msg) {
+            if (!msg) return;
+            var cfg = msg.config || {};
+            configCameraLbl.textContent = msg.hostName ? '(' + msg.hostName + ')' : '';
+            photoArgsEl.value = cfg.photoArgs || '';
+            videoArgsEl.value = cfg.videoArgs || '';
+            if (cfg.previewSize) {
+                var opt = resolutionSelect.querySelector('option[value="' + cfg.previewSize + '"]');
+                if (opt) resolutionSelect.value = cfg.previewSize;
+            }
+            if (cfg.previewQuality) {
+                qualityRange.value = cfg.previewQuality;
+                qualityValue.textContent = cfg.previewQuality;
+            }
+            if (msg.saved) {
+                saveConfigStatus.textContent = 'saved ' + new Date().toLocaleTimeString();
+            }
+        });
+
+        document.getElementById('saveConfigButton').addEventListener('click', function () {
+            saveConfigStatus.textContent = 'saving...';
+            socket.emit('set-camera-config', {
+                socketId: socketId,
+                config: {
+                    photoArgs:      photoArgsEl.value.trim(),
+                    videoArgs:      videoArgsEl.value.trim(),
+                    previewSize:    resolutionSelect.value,
+                    previewQuality: parseInt(qualityRange.value, 10)
+                }
+            });
+        });
     </script>
 </body>
 </html>
