@@ -8,6 +8,7 @@
     <title>3D Scanner</title>
 
     <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/theme.css">
     <script src="/js/vue.js"></script>
 
     <style>
@@ -37,6 +38,7 @@
                 <span class="navbar-brand" href="#">
                     3D Scanner Camera Coordinator
                 </span>
+                <input type="text" v-model="projectName" @blur="persistProject" placeholder="Project name (optional)" class="form-control navbar-btn" style="max-width:200px;">
                 <input type="text" v-model="photoCommand" @keyup.enter="updateAllCustomCommands" placeholder="Enter photo command" class="form-control navbar-btn">
                 <input type="button" value="Take Photo" class="btn btn-success navbar-btn" v-on:click="takePhoto">
                 <input type="button" value="Take Video" class="btn btn-danger navbar-btn" v-on:click="takeVideo">

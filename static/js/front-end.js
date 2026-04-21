@@ -9,6 +9,7 @@ var app = new Vue({
         message: 'Hello Vue!',
         customCommands: {}, // 커맨드 값을 저장할 객체
         photoCommand :"",
+        projectName: (typeof localStorage !== 'undefined' && localStorage.getItem('projectName')) || '',
         cameras: [],
         videos: [],
         photos: [
@@ -116,23 +117,31 @@ var app = new Vue({
                 alert('Please enter a photo command.');
                 return;
             }
-            // Emit take-photo event with the command
- 
+            this.persistProject();
             takeId = guid();
-            this.socket.emit('take-photo', { command: this.photoCommand,customCommands: this.customCommands, time: Date.now(), takeId: takeId});
-            //takeId = guid();
-            //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
+            this.socket.emit('take-photo', {
+                command: this.photoCommand,
+                customCommands: this.customCommands,
+                project: this.projectName.trim(),
+                time: Date.now(),
+                takeId: takeId
+            });
         },
         takeVideo: function () {
- 
+            this.persistProject();
             takeId = guid();
-            this.socket.emit('take-video', 
-                { command: this.photoCommand,
-                    customCommands: this.customCommands, 
-                    time: Date.now(), 
-                    takeId: takeId});
-            //takeId = guid();
-            //this.socket.emit('take-photo', {takeId: takeId, time: Date.now()});
+            this.socket.emit('take-video', {
+                command: this.photoCommand,
+                customCommands: this.customCommands,
+                project: this.projectName.trim(),
+                time: Date.now(),
+                takeId: takeId
+            });
+        },
+        persistProject: function () {
+            if (typeof localStorage !== 'undefined') {
+                try { localStorage.setItem('projectName', this.projectName || ''); } catch (e) {}
+            }
         },
         updateSoftware: function () {
             this.socket.emit('update-software', {});

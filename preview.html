@@ -4,18 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Camera Preview</title>
+    <link rel="stylesheet" href="/css/theme.css">
     <style>
-        body { font-family: sans-serif; margin: 20px; }
-        #video { display: block; max-width: 100%; width: 640px; background: #222; min-height: 480px; }
-        .status { color: #888; font-size: 13px; margin-top: 8px; }
-        .row { margin: 12px 0; }
-        button { padding: 6px 14px; margin-right: 8px; }
+        body { margin: 20px; }
+        h1 { color: var(--gold); font-size: 20px; margin-top: 0; }
+        #video { display: block; max-width: 100%; width: 1280px; background: #000; min-height: 720px; border: 1px solid var(--border); border-radius: 3px; }
+        .status { color: var(--text-dim); font-size: 13px; margin-top: 8px; }
+        .row { margin: 14px 0; }
+        button, select, input[type=range] { padding: 6px 14px; margin-right: 8px; }
+        button { background: var(--bg-elev); color: var(--text); border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
+        button:hover { background: #2b2b34; color: var(--gold); border-color: var(--gold); }
+        select { background: #000; color: var(--text); border: 1px solid var(--border); padding: 4px 8px; }
+        label { color: var(--text-dim); margin-right: 6px; }
+        code { color: var(--gold); }
     </style>
 </head>
 <body>
     <h1>Camera Preview</h1>
     <img id="video" alt="preview stream">
     <div class="status" id="status">waiting for stream...</div>
+
+    <div class="row">
+        <label>Resolution:</label>
+        <select id="resolutionSelect">
+            <option value="640x480">640 × 480</option>
+            <option value="1280x720" selected>1280 × 720</option>
+            <option value="1920x1080">1920 × 1080</option>
+        </select>
+        <label style="margin-left:16px;">Quality:</label>
+        <input type="range" id="qualityRange" min="30" max="95" value="85" style="vertical-align:middle;">
+        <span id="qualityValue">85</span>
+        <button id="applyStreamButton" style="margin-left:12px;">Apply</button>
+    </div>
 
     <div class="row">
         <label for="focusRange">Focus:</label>
@@ -40,9 +60,24 @@
 
         function setStatus(text) { statusElement.textContent = text; }
 
+        var resolutionSelect = document.getElementById('resolutionSelect');
+        var qualityRange     = document.getElementById('qualityRange');
+        var qualityValue     = document.getElementById('qualityValue');
+        qualityRange.addEventListener('input', function () { qualityValue.textContent = qualityRange.value; });
+
+        function currentPreviewOpts() {
+            var parts = resolutionSelect.value.split('x');
+            return {
+                width:   parseInt(parts[0], 10),
+                height:  parseInt(parts[1], 10),
+                quality: parseInt(qualityRange.value, 10)
+            };
+        }
+
         function startPreview() {
             setStatus('requesting stream...');
-            socket.emit('preview', { socketId: socketId, clientId: socketId });
+            var opts = currentPreviewOpts();
+            socket.emit('preview', Object.assign({ socketId: socketId, clientId: socketId }, opts));
         }
 
         function stopPreview() {
@@ -77,6 +112,10 @@
 
         document.getElementById('startStreamButton').addEventListener('click', startPreview);
         document.getElementById('stopStreamButton').addEventListener('click', stopPreview);
+        document.getElementById('applyStreamButton').addEventListener('click', function () {
+            socket.emit('stop-preview', { socketId: socketId });
+            setTimeout(startPreview, 600);
+        });
         document.getElementById('takePhotoButton').addEventListener('click', function () {
             socket.emit('take-photo', { time: Date.now() });
         });

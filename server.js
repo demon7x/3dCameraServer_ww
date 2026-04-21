@@ -35,7 +35,7 @@ app.post('/new-image', upload.single('image'), function (request, response) {
         return response.sendStatus(400);
     }
 
-    let folderName = getFolderName(request.body.startTime);
+    let folderName = getFolderName(request.body.startTime, request.body.project);
     let folderDir  = './images/' + folderName;
     if (!fs.existsSync(folderDir)) fs.mkdirSync(folderDir, { recursive: true });
     let imagePath  = folderDir + '/' + request.body.fileName;
@@ -67,7 +67,7 @@ app.post('/new-video', upload.single('video'), function (request, response) {
         return response.sendStatus(400);
     }
 
-    var folderName = getFolderName(request.body.startTime);
+    var folderName = getFolderName(request.body.startTime, request.body.project);
     var folderDir  = './videos/' + folderName;
     if (!fs.existsSync(folderDir)) fs.mkdirSync(folderDir, { recursive: true });
 
@@ -210,12 +210,12 @@ io.on('connection', function (socket) {
 
     // When a take photo message comes in create the folder, update the cameras and pass on the take message to devices
     socket.on('take-photo', function(msg){
-        console.log("Take a new photo");
+        console.log("Take a new photo, project=" + (msg.project || 'default'));
 
-        let folderName = './images/' + getFolderName(msg.time);
+        let folderName = './images/' + getFolderName(msg.time, msg.project);
 
         if (!fs.existsSync(folderName)) {
-            fs.mkdirSync(folderName);
+            fs.mkdirSync(folderName, { recursive: true });
         }
         //msg.socketId = socket.id;
         io.emit('take-photo', msg);
@@ -246,7 +246,7 @@ io.on('connection', function (socket) {
         // absorbs LAN latency + small clock drift; tighten once NTP is up.
         msg.startAt = Date.now() + 1500;
 
-        let folderName = './videos/' + getFolderName(msg.time || Date.now());
+        let folderName = './videos/' + getFolderName(msg.time || Date.now(), msg.project);
         if (!fs.existsSync(folderName)) {
             fs.mkdirSync(folderName, { recursive: true });
         }
@@ -395,7 +395,13 @@ io.on('connection', function (socket) {
         var i = findCameraIndex(msg && msg.socketId);
         let camera = cameras[i];
         if (camera) {
-            io.to(camera.socketId).emit('preview', { cameraId: msg.cameraId, clientSocketId: socket.id });
+            io.to(camera.socketId).emit('preview', {
+                cameraId: msg.cameraId,
+                clientSocketId: socket.id,
+                width:   msg && msg.width,
+                height:  msg && msg.height,
+                quality: msg && msg.quality
+            });
         } else {
             console.log("Camera not found for preview:", msg && msg.socketId);
         }
@@ -523,15 +529,18 @@ function findCameraIndexByName(name) {
 }
 
 
-// Generate a folder name based on the timestamp
-function getFolderName(time) {
+// Generate a folder name based on the timestamp, optionally prefixed with
+// the project name so operators can keep shoots grouped on disk.
+function getFolderName(time, project) {
     let date = new Date(Number(time));
     let dayOfWeek = ("0" + date.getDate()).slice(-2);
     let month = ("0" + (date.getMonth() + 1)).slice(-2);
     let hour = ("0" + (date.getHours() + 1)).slice(-2);
     let minute = ("0" + (date.getMinutes() + 1)).slice(-2);
     let seconds = ("0" + (date.getSeconds() + 1)).slice(-2);
-    return date.getFullYear() + month + dayOfWeek + hour + minute + seconds;
+    let stamp = date.getFullYear() + month + dayOfWeek + hour + minute + seconds;
+    let prefix = (project && String(project).trim()) ? String(project).trim().replace(/[^a-zA-Z0-9_\-]/g, '_') : 'default';
+    return prefix + '_' + stamp;
 }
 
 

@@ -1,0 +1,176 @@
+/* Black & Gold theme for 4DGS scanner coordinator.
+ * Loaded AFTER bootstrap.min.css to override its defaults without forking. */
+
+:root {
+    --bg-base:   #0e0e10;
+    --bg-panel:  #17171a;
+    --bg-elev:   #23232a;
+    --gold:      #d4af37;
+    --gold-hi:   #e6c35c;
+    --gold-dim:  #8a6d1f;
+    --text:      #e8e8e8;
+    --text-dim:  #8a8a8a;
+    --border:    #3a3a3e;
+    --danger:    #b23b3b;
+    --warn-bg:   #3a2e14;
+}
+
+html, body {
+    background: var(--bg-base);
+    color: var(--text);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+a            { color: var(--gold); }
+a:hover,
+a:focus      { color: var(--gold-hi); text-decoration: none; }
+
+::selection  { background: var(--gold-dim); color: #fff; }
+
+/* Navbar */
+.navbar-default {
+    background: #000;
+    border: none;
+    border-bottom: 1px solid var(--gold-dim);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+}
+.navbar-default .navbar-brand {
+    color: var(--gold);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+}
+.navbar-default .navbar-nav > li > a { color: var(--text); }
+
+/* Buttons */
+.btn {
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    color: var(--text);
+    border-radius: 3px;
+    transition: all 120ms ease;
+}
+.btn:hover, .btn:focus {
+    background: #2b2b34;
+    color: var(--gold);
+    border-color: var(--gold);
+}
+
+.btn-success {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #000;
+    font-weight: 600;
+}
+.btn-success:hover, .btn-success:focus {
+    background: var(--gold-hi);
+    border-color: var(--gold-hi);
+    color: #000;
+}
+
+.btn-info {
+    background: var(--bg-elev);
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+.btn-info:hover, .btn-info:focus {
+    background: var(--gold-dim);
+    color: #fff;
+    border-color: var(--gold);
+}
+
+.btn-danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+.btn-danger:hover, .btn-danger:focus {
+    background: #d65050;
+    border-color: #d65050;
+    color: #fff;
+}
+
+.btn-warning {
+    background: #4a3a10;
+    border-color: var(--gold-dim);
+    color: var(--gold);
+}
+.btn-warning:hover, .btn-warning:focus {
+    background: var(--gold-dim);
+    color: #fff;
+}
+
+.btn-default {
+    background: var(--bg-elev);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+/* Inputs */
+.form-control {
+    background: #000;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    box-shadow: none;
+}
+.form-control:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.25);
+}
+.form-control::placeholder { color: var(--text-dim); }
+
+/* Tables */
+.table {
+    background: var(--bg-panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+}
+.table > thead > tr > th {
+    color: var(--gold);
+    background: #000;
+    border-bottom: 2px solid var(--gold-dim);
+    padding: 8px 10px;
+}
+.table > tbody > tr > td {
+    border-color: var(--border);
+    padding: 8px 10px;
+}
+.table > tbody > tr:hover > td { background: #22222a; }
+
+.table > tbody > tr.danger  > td,
+.table > tbody > tr.danger:hover > td  { background: #3a1c1c !important; color: #ffb9b9; }
+.table > tbody > tr.warning > td,
+.table > tbody > tr.warning:hover > td { background: var(--warn-bg) !important; color: var(--gold); }
+
+/* Thumbnails / video cards */
+.thumbnail {
+    background: #000;
+    border: 1px solid var(--border);
+    padding: 4px;
+    border-radius: 3px;
+}
+.caption h3 {
+    color: var(--gold);
+    font-size: 15px;
+    margin: 6px 0 2px;
+    font-weight: 500;
+}
+
+/* Commit SHA code span */
+code {
+    background: #000;
+    color: var(--gold);
+    border: 1px solid var(--gold-dim);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 12px;
+}
+
+/* Scroll thumb on dark */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0a0c; }
+::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
