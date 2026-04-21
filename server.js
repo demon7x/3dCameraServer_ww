@@ -66,6 +66,10 @@ app.get('/viewer', function (request, response) {
     response.sendFile(__dirname + '/viewer.html');
 });
 
+app.get('/settings', function (request, response) {
+    response.sendFile(__dirname + '/settings.html');
+});
+
 
 app.post('/new-image', upload.single('image'), function (request, response) {
     console.log("received a new image", request.body.socketId);
@@ -407,6 +411,41 @@ io.on('connection', function (socket) {
         if (targetSocketId) io.to(targetSocketId).emit('apply-config', merged);
         // Acknowledge to the requester so the UI can confirm
         socket.emit('camera-config', { hostName: host, config: merged, saved: true });
+    });
+
+    // Push the same config patch to every connected camera (and persist per host).
+    socket.on('set-all-configs', function (msg) {
+        if (!msg) return;
+        var patch = msg.config || {};
+        var applied = 0;
+        for (var j = 0; j < cameras.length; j++) {
+            var c = cameras[j];
+            if (c.type !== 'camera' || c.connected === false) continue;
+            var host = c.hostName || c.name;
+            if (!host) continue;
+            var merged = setCameraConfig(host, patch);
+            io.to(c.socketId).emit('apply-config', merged);
+            applied++;
+        }
+        console.log('[config] set-all-configs applied to ' + applied + ' cameras, patch=' + JSON.stringify(patch));
+        socket.emit('all-configs-saved', { applied: applied, patch: patch });
+    });
+
+    socket.on('get-all-configs', function () {
+        var list = [];
+        for (var j = 0; j < cameras.length; j++) {
+            var c = cameras[j];
+            if (c.type !== 'camera') continue;
+            var host = c.hostName || c.name;
+            list.push({
+                socketId: c.socketId,
+                name: c.name,
+                hostName: c.hostName,
+                connected: c.connected !== false,
+                config: getCameraConfig(host)
+            });
+        }
+        socket.emit('all-configs', { cameras: list });
     });
 
     // Pi reports actual signal-fire time so we can log inter-camera skew.

@@ -37,9 +37,48 @@
         <button id="applyStreamButton" style="margin-left:12px;">Apply</button>
     </div>
 
-    <div class="row">
-        <label for="focusRange">Focus:</label>
-        <input type="range" id="focusRange" min="0.0" max="10.0" step="0.1">
+    <div class="row" style="border:1px solid var(--border); padding:10px; background: var(--bg-panel);">
+        <div style="color:var(--gold); font-weight:600; margin-bottom:8px;">Live Controls <span style="color:var(--text-dim); font-weight:normal; font-size:12px;">(applied instantly to the running preview)</span></div>
+        <div style="display:grid; grid-template-columns: auto 1fr auto; gap: 6px 12px; align-items:center;">
+            <label>Auto Exposure:</label>
+            <input type="checkbox" id="aeToggle" checked>
+            <span></span>
+
+            <label>Exposure (µs):</label>
+            <input type="range" id="exposureRange" min="100" max="66000" step="100" value="10000">
+            <span id="exposureValue">10000</span>
+
+            <label>Gain:</label>
+            <input type="range" id="gainRange" min="1.0" max="16.0" step="0.1" value="1.0">
+            <span id="gainValue">1.0</span>
+
+            <label>AWB:</label>
+            <select id="awbSelect">
+                <option value="0">Auto</option>
+                <option value="1">Tungsten</option>
+                <option value="2">Fluorescent</option>
+                <option value="3">Indoor</option>
+                <option value="4">Daylight</option>
+                <option value="5">Cloudy</option>
+            </select>
+            <span></span>
+
+            <label>Brightness:</label>
+            <input type="range" id="brightnessRange" min="-1.0" max="1.0" step="0.05" value="0">
+            <span id="brightnessValue">0</span>
+
+            <label>Contrast:</label>
+            <input type="range" id="contrastRange" min="0.0" max="2.0" step="0.05" value="1.0">
+            <span id="contrastValue">1.0</span>
+
+            <label>Saturation:</label>
+            <input type="range" id="saturationRange" min="0.0" max="2.0" step="0.05" value="1.0">
+            <span id="saturationValue">1.0</span>
+
+            <label for="focusRange">Focus:</label>
+            <input type="range" id="focusRange" min="0.0" max="10.0" step="0.1">
+            <span id="focusValue"></span>
+        </div>
     </div>
 
     <div class="row">
@@ -108,12 +147,87 @@
             else setStatus('missing socketId query param');
         });
 
+        var currentPiBase = null;   // e.g. http://192.168.81.23:8888
         socket.on('preview-url', function (url) {
             console.log('Preview URL:', url);
             // Cache-bust so browser doesn't reuse a dead connection.
             videoElement.src = url + (url.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now();
             setStatus('streaming from ' + url);
+            // Store base for /controls POST
+            try {
+                var u = new URL(url);
+                currentPiBase = u.origin;
+                flushControls(true); // push any slider state accumulated before url arrived
+            } catch (e) {}
         });
+
+        // --- Live control sliders --------------------------------------
+        var aeToggle        = document.getElementById('aeToggle');
+        var exposureRange   = document.getElementById('exposureRange');
+        var exposureValueEl = document.getElementById('exposureValue');
+        var gainRange       = document.getElementById('gainRange');
+        var gainValueEl     = document.getElementById('gainValue');
+        var awbSelect       = document.getElementById('awbSelect');
+        var brightnessRange = document.getElementById('brightnessRange');
+        var brightnessValueEl = document.getElementById('brightnessValue');
+        var contrastRange   = document.getElementById('contrastRange');
+        var contrastValueEl = document.getElementById('contrastValue');
+        var saturationRange = document.getElementById('saturationRange');
+        var saturationValueEl = document.getElementById('saturationValue');
+        var focusValueEl    = document.getElementById('focusValue');
+
+        function bindSlider(input, labelEl, fmt) {
+            input.addEventListener('input', function () {
+                if (labelEl) labelEl.textContent = fmt ? fmt(input.value) : input.value;
+                scheduleControls();
+            });
+        }
+        bindSlider(exposureRange, exposureValueEl);
+        bindSlider(gainRange, gainValueEl, function (v) { return Number(v).toFixed(1); });
+        bindSlider(brightnessRange, brightnessValueEl, function (v) { return Number(v).toFixed(2); });
+        bindSlider(contrastRange, contrastValueEl, function (v) { return Number(v).toFixed(2); });
+        bindSlider(saturationRange, saturationValueEl, function (v) { return Number(v).toFixed(2); });
+        awbSelect.addEventListener('change', scheduleControls);
+        aeToggle.addEventListener('change', scheduleControls);
+        focusRange.addEventListener('input', function () {
+            if (focusValueEl) focusValueEl.textContent = Number(focusRange.value).toFixed(1);
+            scheduleControls();
+        });
+
+        var controlsDebounce = null;
+        function scheduleControls() {
+            clearTimeout(controlsDebounce);
+            controlsDebounce = setTimeout(function () { flushControls(false); }, 150);
+        }
+
+        function currentControls() {
+            return {
+                ae: aeToggle.checked ? 'auto' : 'manual',
+                exposure:   exposureRange.value,
+                gain:       gainRange.value,
+                awb:        awbSelect.value,
+                brightness: brightnessRange.value,
+                contrast:   contrastRange.value,
+                saturation: saturationRange.value,
+                focus:      focusRange.value
+            };
+        }
+
+        function flushControls(silent) {
+            if (!currentPiBase) return;
+            var payload = currentControls();
+            fetch(currentPiBase + '/controls', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            }).then(function (r) {
+                if (!silent && r.ok) setStatus('controls applied: ' + JSON.stringify(payload));
+            }).catch(function (e) {
+                console.warn('controls POST failed:', e);
+            });
+            // Also keep server-side update-focus event working for legacy paths
+            socket.emit('update-focus', { socketId: socketId, focusValue: focusRange.value });
+        }
 
         videoElement.addEventListener('error', function () {
             setStatus('stream connection failed — retrying in 2s');
@@ -133,14 +247,6 @@
         });
         document.getElementById('takePhotoButton').addEventListener('click', function () {
             socket.emit('take-photo', { time: Date.now() });
-        });
-
-        var focusTimeout;
-        focusRange.addEventListener('input', function () {
-            clearTimeout(focusTimeout);
-            focusTimeout = setTimeout(function () {
-                socket.emit('update-focus', { socketId: socketId, focusValue: focusRange.value });
-            }, 500);
         });
 
         window.addEventListener('beforeunload', stopPreview);
