@@ -32,6 +32,11 @@ var app = new Vue({
     computed: {
         orderedCameras: function () {
             return this.cameras.slice().sort((a, b) => a.name.localeCompare(b.name));
+        },
+        orderedPhotos: function () {
+            return this.photos.slice().sort((a, b) =>
+                (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
+            );
         }
     },
     created: function () {
@@ -52,7 +57,7 @@ var app = new Vue({
                     response[i].photoError = photoError;
                     lastUpdateProblem = false;
                     var timeSinceLastUpdate = Math.round((new Date() - new Date(response[i].lastCheckin)) / 100) / 10;
-                    if ((timeSinceLastUpdate > 10) && !response[i].photoSending) {
+                    if ((timeSinceLastUpdate > 10) && !response[i].photoSending && response[i].status !== 'recording') {
                         lastUpdateProblem = true;
                     }
                     response[i].lastUpdateProblem = lastUpdateProblem;

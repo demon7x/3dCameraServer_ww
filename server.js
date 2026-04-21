@@ -99,6 +99,7 @@ io.on('connection', function (socket) {
         cameras[i].ipAddress        = msg.ipAddress;
         cameras[i].lastCheckin      = new Date();
         cameras[i].updateInProgress = msg.updateInProgress;
+        cameras[i].status           = msg.status || 'idle';
         if (msg.version) {
             cameras[i].version = msg.version;
         }

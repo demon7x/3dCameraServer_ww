@@ -43,7 +43,7 @@
     </nav>
     <div class="container-fluid">
         <div class="row">
-            <div class="col-xs-3" v-for="photo in photos">
+            <div class="col-xs-3" v-for="photo in orderedPhotos">
                 <img :src="photo.imagePath" class="thumbnail">
                 <div class="caption">
                     <h3>{{ photo.cameraName }}</h3>
