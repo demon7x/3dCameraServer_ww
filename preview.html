@@ -90,12 +90,16 @@
     <hr style="border-color: var(--border); margin: 28px 0 16px;">
     <h2 style="color: var(--gold); font-size: 16px;">Camera Settings <span id="configCameraLabel" style="color: var(--text-dim); font-weight: normal; font-size: 13px;"></span></h2>
     <div class="row">
-        <label style="display:block; margin-bottom:4px;">Photo extra args (added on top of Live Controls above):</label>
-        <input type="text" id="photoArgs" placeholder="e.g. --ev 0.3 --hdr" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
+        <label style="display:block; margin-bottom:4px;">
+            Photo args <span style="color: var(--text-dim); font-size: 11px;">(full libcamera-still args — Live Controls rewrite --shutter / --gain / --awb / --brightness / --contrast / --saturation / --lens-position on Save)</span>
+        </label>
+        <input type="text" id="photoArgs" placeholder="e.g. --shutter 10000 --gain 1.5 --awb daylight --ev 0.3" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
     </div>
     <div class="row">
-        <label style="display:block; margin-bottom:4px;">Video extra args (added on top of Live Controls above):</label>
-        <input type="text" id="videoArgs" placeholder="e.g. --denoise cdn_off" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
+        <label style="display:block; margin-bottom:4px;">
+            Video args <span style="color: var(--text-dim); font-size: 11px;">(full libcamera-vid args — same rewrite rules)</span>
+        </label>
+        <input type="text" id="videoArgs" placeholder="e.g. --shutter 10000 --gain 1.5 --denoise cdn_off" style="width: 90%; padding: 6px 8px; background: #000; color: var(--text); border: 1px solid var(--border);">
     </div>
     <div class="row">
         <button id="saveConfigButton" style="background: var(--gold); color: #000; font-weight: 600;">Apply & Save</button>
@@ -377,14 +381,13 @@
             var cfg = msg.config || {};
             configCameraLbl.textContent = msg.hostName ? '(' + msg.hostName + ')' : '';
 
-            // Parse photoArgs first (authoritative for shared structured
-            // flags) — updates sliders and extracts residual for the
-            // photo extras text input. Then parse videoArgs without
-            // re-touching the sliders to compute its residual.
-            var photoResidual = parseArgsIntoSliders(cfg.photoArgs || '', true);
-            var videoResidual = parseArgsIntoSliders(cfg.videoArgs || '', false);
-            photoArgsEl.value = photoResidual;
-            videoArgsEl.value = videoResidual;
+            // Show the full saved args in the text inputs so the user
+            // can always see exactly what is persisted. The sliders are
+            // seeded from photoArgs for structured flags; text inputs
+            // keep the complete string.
+            photoArgsEl.value = cfg.photoArgs || '';
+            videoArgsEl.value = cfg.videoArgs || '';
+            parseArgsIntoSliders(cfg.photoArgs || '', true);
 
             if (cfg.previewSize) {
                 var opt = resolutionSelect.querySelector('option[value="' + cfg.previewSize + '"]');
@@ -404,19 +407,31 @@
             }
         });
 
+        // Take whatever is in the text input, strip any structured flags
+        // the sliders own, and append the slider-derived structured args.
+        // Result: the text input value is preserved for anything unknown,
+        // but structured flags reflect the current slider state.
+        function mergeStructuredInto(argsStr) {
+            var residual = parseArgsIntoSliders(argsStr, false);
+            var structured = slidersToArgs();
+            return [structured, residual].filter(Boolean).join(' ');
+        }
+
         function saveConfig(silent) {
             saveConfigStatus.textContent = silent ? 'auto-saving...' : 'saving...';
-            var structured = slidersToArgs();
-            var photoExtras = photoArgsEl.value.trim();
-            var videoExtras = videoArgsEl.value.trim();
-            var combinedPhoto = [structured, photoExtras].filter(Boolean).join(' ');
-            var combinedVideo = [structured, videoExtras].filter(Boolean).join(' ');
+            var photoMerged = mergeStructuredInto(photoArgsEl.value);
+            var videoMerged = mergeStructuredInto(videoArgsEl.value);
+
+            // Reflect the merged result back into the visible inputs so
+            // the user sees what was saved.
+            photoArgsEl.value = photoMerged;
+            videoArgsEl.value = videoMerged;
 
             socket.emit('set-camera-config', {
                 socketId: socketId,
                 config: {
-                    photoArgs:      combinedPhoto,
-                    videoArgs:      combinedVideo,
+                    photoArgs:      photoMerged,
+                    videoArgs:      videoMerged,
                     previewSize:    resolutionSelect.value,
                     previewQuality: parseInt(qualityRange.value, 10)
                 }
