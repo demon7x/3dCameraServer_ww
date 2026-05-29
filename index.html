@@ -23,13 +23,20 @@
     .container-fluid {
         margin-top: 12px;
     }
-    /* When viewport is narrow enough that the navbar wraps to a
-       second row, give the fixed navbar more vertical room. */
+    /* Stop form-control inputs in the navbar from claiming a whole row
+       each (form-control defaults to width:100%). Inline them so the
+       brand + inputs + buttons stay on a single line. */
+    .navbar .navbar-header .form-control.navbar-btn {
+        display: inline-block;
+        width: auto;
+        vertical-align: middle;
+    }
+    /* Fallback padding when the navbar still wraps on narrower screens. */
     @media (max-width: 1399px) {
         body { padding-top: 110px; }
     }
     @media (max-width: 991px) {
-        body { padding-top: 150px; }
+        body { padding-top: 200px; }
     }
     .custom-command-input {
         width: 100%; /* 너비 두 배 */
