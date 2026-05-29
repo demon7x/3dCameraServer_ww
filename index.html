@@ -20,6 +20,17 @@
     body {
         padding-top: 70px;
     }
+    .container-fluid {
+        margin-top: 12px;
+    }
+    /* When viewport is narrow enough that the navbar wraps to a
+       second row, give the fixed navbar more vertical room. */
+    @media (max-width: 1399px) {
+        body { padding-top: 110px; }
+    }
+    @media (max-width: 991px) {
+        body { padding-top: 150px; }
+    }
     .custom-command-input {
         width: 100%; /* 너비 두 배 */
     }
