@@ -45,35 +45,59 @@
         background: #222;
     }
 
-    /* Summary tile shown after capture: latest asset + count badge */
+    /* Capture sessions strip: each click of Take Photo / Take Video
+       produces one tile, newest on the left. Horizontally scrollable
+       when there are too many to fit. */
+    .session-strip {
+        display: flex;
+        gap: 14px;
+        padding: 0 15px 8px;
+        overflow-x: auto;
+        align-items: flex-start;
+    }
     .tile {
         position: relative;
         cursor: pointer;
-        display: inline-block;
-        margin-right: 12px;
+        flex: 0 0 auto;
+        width: 480px;
     }
     .tile img, .tile video {
         width: 100%;
-        max-width: 320px;
-        max-height: 240px;
+        height: 320px;
+        object-fit: cover;
         border: 1px solid var(--gold-dim);
         background: #000;
         display: block;
     }
     .tile:hover img, .tile:hover video { border-color: var(--gold); }
     .tile .badge {
-        position: absolute; top: 6px; right: 6px;
+        position: absolute; top: 8px; right: 8px;
         background: var(--gold);
         color: #000;
-        padding: 2px 10px;
+        padding: 3px 12px;
         border-radius: 12px;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 600;
+    }
+    .tile .kind {
+        position: absolute; top: 8px; left: 8px;
+        background: rgba(0,0,0,0.7);
+        color: var(--gold);
+        border: 1px solid var(--gold-dim);
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     .tile .label {
         color: var(--gold);
         margin-top: 6px;
         font-size: 13px;
+    }
+    .tile .label .dim {
+        color: var(--text-dim);
+        margin-left: 6px;
     }
 
     /* Full-screen gallery modal */
@@ -136,16 +160,26 @@
         </div>
     </nav>
     <div class="container-fluid">
-        <div class="row" style="padding: 0 15px;">
-            <div class="tile" v-if="orderedPhotos.length" v-on:click="openGallery('photo', 0)">
-                <img :src="orderedPhotos[0].imagePath">
-                <span class="badge">{{ orderedPhotos.length }} photos</span>
-                <div class="label">latest: {{ orderedPhotos[0].cameraName }}</div>
+        <div class="session-strip" v-if="photoSessions.length || videoSessions.length">
+            <div class="tile" v-for="(s, si) in photoSessions" :key="'p'+ (s.takeId || si)" v-on:click="openGallery('photo', si, 0)">
+                <img v-if="s.photos.length" :src="s.photos[0].imagePath">
+                <div v-else style="height:320px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); border:1px dashed var(--border); background:#000;">waiting...</div>
+                <span class="kind">photo</span>
+                <span class="badge">{{ s.photos.length }}</span>
+                <div class="label">
+                    #{{ photoSessions.length - si }}
+                    <span class="dim">{{ formatSessionTime(s.startedAt) }}{{ s.project ? ' · ' + s.project : '' }}</span>
+                </div>
             </div>
-            <div class="tile" v-if="orderedVideos.length" v-on:click="openGallery('video', 0)">
-                <video :src="orderedVideos[0].videoPath" preload="metadata" muted></video>
-                <span class="badge">{{ orderedVideos.length }} videos</span>
-                <div class="label">latest: {{ orderedVideos[0].cameraName }}</div>
+            <div class="tile" v-for="(s, si) in videoSessions" :key="'v'+ (s.takeId || si)" v-on:click="openGallery('video', si, 0)">
+                <video v-if="s.videos.length" :src="s.videos[0].videoPath" preload="metadata" muted></video>
+                <div v-else style="height:320px; display:flex; align-items:center; justify-content:center; color:var(--text-dim); border:1px dashed var(--border); background:#000;">recording...</div>
+                <span class="kind">video</span>
+                <span class="badge">{{ s.videos.length }}</span>
+                <div class="label">
+                    #{{ videoSessions.length - si }}
+                    <span class="dim">{{ formatSessionTime(s.startedAt) }}{{ s.project ? ' · ' + s.project : '' }}</span>
+                </div>
             </div>
         </div>
 

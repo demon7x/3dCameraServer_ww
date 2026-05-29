@@ -11,43 +11,26 @@ var app = new Vue({
         photoCommand :"",
         projectName: (typeof localStorage !== 'undefined' && localStorage.getItem('projectName')) || '',
         cameras: [],
-        videos: [],
-        gallery: { open: false, kind: null, index: 0 },
-        photos: [
-            {
-                imagePath: '/img/placeholder.png',
-                cameraName: 'test'
-            },
-            {
-                imagePath: '/img/placeholder.png',
-                cameraName: 'test'
-            },
-            {
-                imagePath: '/img/placeholder.png',
-                cameraName: 'test'
-            },
-            {
-                imagePath: '/img/placeholder.png',
-                cameraName: 'test'
-            }
-        ]
+        // Each capture click produces one session; new files from that
+        // round land in the latest session. Subsequent clicks unshift a
+        // new session so the tiles accumulate left-to-right (newest first).
+        photoSessions: [],   // [{takeId, startedAt, photos:[]}]
+        videoSessions: [],   // [{takeId, startedAt, videos:[]}]
+        gallery: { open: false, kind: null, sessionIdx: 0, index: 0 }
     },
     computed: {
         orderedCameras: function () {
             return this.cameras.slice().sort((a, b) => a.name.localeCompare(b.name));
         },
-        orderedPhotos: function () {
-            return this.photos.slice().sort((a, b) =>
-                (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
-            );
-        },
-        orderedVideos: function () {
-            return this.videos.slice().sort((a, b) =>
-                (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true})
-            );
-        },
+        // For the gallery currently open: produce a cameraName-sorted
+        // list of the items in that session.
         galleryList: function () {
-            return this.gallery.kind === 'video' ? this.orderedVideos : this.orderedPhotos;
+            var sess = (this.gallery.kind === 'video' ? this.videoSessions : this.photoSessions)[this.gallery.sessionIdx];
+            if (!sess) return [];
+            var items = this.gallery.kind === 'video' ? sess.videos : sess.photos;
+            return items.slice().sort(function (a, b) {
+                return (a.cameraName || '').localeCompare(b.cameraName || '', undefined, {numeric: true});
+            });
         },
         currentItem: function () {
             var list = this.galleryList;
@@ -105,24 +88,52 @@ var app = new Vue({
 
         });
 
-        this.socket.on('new-photo', function(data){
-            that.photos.push(data);
+        // Route an incoming asset to a session: prefer takeId match,
+        // otherwise the most recent session, otherwise create one.
+        function landIn(sessions, key, data) {
+            var idx = -1;
+            if (data && data.takeId) {
+                for (var i = 0; i < sessions.length; i++) {
+                    if (sessions[i].takeId === data.takeId) { idx = i; break; }
+                }
+            }
+            if (idx === -1) {
+                if (!sessions.length) {
+                    sessions.unshift({ takeId: (data && data.takeId) || null, startedAt: Date.now(), photos: [], videos: [] });
+                }
+                idx = 0;
+            }
+            sessions[idx][key].push(data);
+        }
+
+        this.socket.on('new-photo', function (data) {
+            landIn(that.photoSessions, 'photos', data);
         });
 
         this.socket.on('photo-error', function(data){
             console.log(data);
         });
 
-        this.socket.on('take-photo', function(data){
-            that.photos = [];
+        this.socket.on('take-photo', function (data) {
+            // Broadcast from another client (or this one). Open a fresh
+            // session for this takeId if we haven't seen it yet.
+            if (!data || !data.takeId) return;
+            var seen = that.photoSessions.find(function (s) { return s.takeId === data.takeId; });
+            if (!seen) {
+                that.photoSessions.unshift({ takeId: data.takeId, startedAt: Date.now(), photos: [], videos: [], project: data.project || null });
+            }
         });
 
         this.socket.on('new-video', function (data) {
-            that.videos.push(data);
+            landIn(that.videoSessions, 'videos', data);
         });
 
         this.socket.on('take-video', function (data) {
-            that.videos = [];
+            if (!data || !data.takeId) return;
+            var seen = that.videoSessions.find(function (s) { return s.takeId === data.takeId; });
+            if (!seen) {
+                that.videoSessions.unshift({ takeId: data.takeId, startedAt: Date.now(), photos: [], videos: [], project: data.project || null });
+            }
         });
     },
     methods: {
@@ -173,8 +184,14 @@ var app = new Vue({
         syncClockAll: function () {
             this.socket.emit('sync-all-now', {});
         },
-        openGallery: function (kind, index) {
-            this.gallery = { open: true, kind: kind, index: index || 0 };
+        openGallery: function (kind, sessionIdx, index) {
+            this.gallery = { open: true, kind: kind, sessionIdx: sessionIdx || 0, index: index || 0 };
+        },
+        formatSessionTime: function (ts) {
+            if (!ts) return '';
+            var d = new Date(ts);
+            function p(n) { return n < 10 ? '0' + n : '' + n; }
+            return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
         },
         closeGallery: function () {
             this.gallery.open = false;
